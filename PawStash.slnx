@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/PawStash.Api/PawStash.Api.csproj" />
+    <Project Path="src/PawStash.Shared/PawStash.Shared.csproj" />
+  </Folder>
+  <Folder Name="/src/PawStash.App/">
+    <Project Path="src/PawStash.App/PawStash.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:PawStash.ViewModels"
+             x:Class="PawStash.Views.LoginPage"
+             x:DataType="vm:LoginViewModel"
+             Title="Вхід">
+
+    <VerticalStackLayout Padding="20" Spacing="10" MaximumWidthRequest="400">
+        <Label Text="Пошта" />
+        <Entry Text="{Binding Email}" Placeholder="name@example.com" Keyboard="Email"
+               IsSpellCheckEnabled="False" ReturnCommand="{Binding LoginCommand}" />
+        <Label Text="{Binding Error}" IsVisible="{Binding HasError}" TextColor="Red" />
+        <Button Text="Увійти" Command="{Binding LoginCommand}" />
+        <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" />
+    </VerticalStackLayout>
+</ContentPage>

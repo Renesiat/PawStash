@@ -1,0 +1,17 @@
+{
+  "// note": "C:\Program Files\dotnet (8.0.402) wins the machine PATH, so we prepend the user-local .NET 10 SDK for VS Code's integrated terminal.",
+  "terminal.integrated.env.windows": {
+    "DOTNET_ROOT": "${env:USERPROFILE}\.dotnet",
+    "PATH": "${env:USERPROFILE}\.dotnet;${env:PATH}"
+  },
+  "dotnetAcquisitionExtension.existingDotnetPath": [
+    {
+      "extensionId": "ms-dotnettools.csharp",
+      "path": "${env:USERPROFILE}\.dotnet\dotnet.exe"
+    },
+    {
+      "extensionId": "ms-dotnettools.csdevkit",
+      "path": "${env:USERPROFILE}\.dotnet\dotnet.exe"
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+# PostgreSQL for local development. Start with: docker compose up -d
+services:
+  db:
+    image: postgres:17
+    container_name: pawstash-db
+    environment:
+      POSTGRES_DB: pawstash
+      POSTGRES_USER: pawstash
+      POSTGRES_PASSWORD: pawstash_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - pawstash-db:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  pawstash-db:
