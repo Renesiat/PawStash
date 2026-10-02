@@ -39,5 +39,17 @@ namespace PawStash.BLL.Implementations
 
             return ServiceResult<UserDto>.Success(new UserDto { Email = email });
         }
+
+        public async Task<bool> IsAllowedEmail(string? email)
+        {
+            if (EmailRules.Validate(email) is not null)
+            {
+                return false;
+            }
+
+            string normalizedEmail = EmailRules.Normalize(email!);
+
+            return await _context.Users.AnyAsync(x => x.Email == normalizedEmail);
+        }
     }
 }

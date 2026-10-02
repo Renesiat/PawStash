@@ -6,5 +6,7 @@ namespace PawStash.BLL.Interfaces
     public interface IAuthService
     {
         Task<ServiceResult<UserDto>> Login(LoginPostDto loginPostDto);
+
+        Task<bool> IsAllowedEmail(string? email);
     }
 }

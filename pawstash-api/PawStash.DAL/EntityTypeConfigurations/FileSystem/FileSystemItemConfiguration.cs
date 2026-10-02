@@ -29,6 +29,10 @@ namespace PawStash.DAL.EntityTypeConfigurations.FileSystem
                 table.HasCheckConstraint(
                     "ck_file_system_items_uploaded_file",
                     "item_type NOT IN ('photo', 'document') OR (file_path IS NOT NULL AND file_mime_type IS NOT NULL AND file_size_bytes IS NOT NULL)");
+
+                table.HasCheckConstraint(
+                    "ck_file_system_items_cover_image",
+                    "(cover_image_path IS NULL) = (cover_image_mime_type IS NULL)");
             });
 
             builder.HasKey(x => x.ItemId)
@@ -65,6 +69,17 @@ namespace PawStash.DAL.EntityTypeConfigurations.FileSystem
                 .HasColumnName("name_lowercase")
                 .HasMaxLength(FileSystemItemRules.MaxNameLength)
                 .HasComputedColumnSql("lower(name)", stored: true);
+
+            builder.Property(x => x.Description)
+                .HasColumnName("description");
+
+            builder.Property(x => x.CoverImagePath)
+                .HasColumnName("cover_image_path")
+                .HasMaxLength(300);
+
+            builder.Property(x => x.CoverImageMimeType)
+                .HasColumnName("cover_image_mime_type")
+                .HasMaxLength(100);
 
             builder.Property(x => x.CreatedAt)
                 .HasColumnName("created_at");

@@ -1,4 +1,5 @@
 using FluentValidation;
+using PawStash.BLL.Validators.Extensions;
 using PawStash.Common.Models.DTO.Auth;
 using PawStash.Common.Rules;
 
@@ -8,16 +9,7 @@ namespace PawStash.BLL.Validators
     {
         public LoginPostDtoValidator()
         {
-            RuleFor(x => x.Email)
-                .Custom((email, context) =>
-                {
-                    string? error = EmailRules.Validate(email);
-
-                    if (error is not null)
-                    {
-                        context.AddFailure(error);
-                    }
-                });
+            RuleFor(x => x.Email).Satisfies(EmailRules.Validate);
         }
     }
 }

@@ -13,6 +13,21 @@ namespace PawStash.API.Controllers
                 return Ok(result.Data);
             }
 
+            return ResolveError(result);
+        }
+
+        protected IActionResult ResolveResponse(ServiceResult result)
+        {
+            if (result.IsSuccess)
+            {
+                return NoContent();
+            }
+
+            return ResolveError(result);
+        }
+
+        private IActionResult ResolveError(ServiceResult result)
+        {
             if (result.ErrorType == ServiceErrorType.Validation)
             {
                 foreach (KeyValuePair<string, string[]> fieldError in result.FieldErrors)

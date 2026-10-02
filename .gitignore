@@ -3,3 +3,4 @@ obj/
 .vs/
 *.user
 *.binlog
+pawstash-api/PawStash.API/data/

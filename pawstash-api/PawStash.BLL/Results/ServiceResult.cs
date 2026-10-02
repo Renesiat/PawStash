@@ -1,20 +1,16 @@
 namespace PawStash.BLL.Results
 {
-    public class ServiceResult<T>
+    public class ServiceResult
     {
-        private ServiceResult(
-            T? data,
+        protected ServiceResult(
             ServiceErrorType? errorType,
             string? errorMessage,
             IDictionary<string, string[]>? fieldErrors)
         {
-            Data = data;
             ErrorType = errorType;
             ErrorMessage = errorMessage;
             FieldErrors = fieldErrors ?? new Dictionary<string, string[]>();
         }
-
-        public T? Data { get; }
 
         public ServiceErrorType? ErrorType { get; }
 
@@ -24,19 +20,54 @@ namespace PawStash.BLL.Results
 
         public bool IsSuccess => ErrorType is null;
 
+        public static ServiceResult Success()
+        {
+            return new ServiceResult(null, null, null);
+        }
+
+        public static ServiceResult Fail(ServiceErrorType errorType, string errorMessage)
+        {
+            return new ServiceResult(errorType, errorMessage, null);
+        }
+
+        public static ServiceResult Invalid(IDictionary<string, string[]> fieldErrors)
+        {
+            return new ServiceResult(ServiceErrorType.Validation, null, fieldErrors);
+        }
+    }
+
+    public class ServiceResult<T> : ServiceResult
+    {
+        private ServiceResult(
+            T? data,
+            ServiceErrorType? errorType,
+            string? errorMessage,
+            IDictionary<string, string[]>? fieldErrors)
+            : base(errorType, errorMessage, fieldErrors)
+        {
+            Data = data;
+        }
+
+        public T? Data { get; }
+
         public static ServiceResult<T> Success(T data)
         {
             return new ServiceResult<T>(data, null, null, null);
         }
 
-        public static ServiceResult<T> Fail(ServiceErrorType errorType, string errorMessage)
+        public static new ServiceResult<T> Fail(ServiceErrorType errorType, string errorMessage)
         {
             return new ServiceResult<T>(default, errorType, errorMessage, null);
         }
 
-        public static ServiceResult<T> Invalid(IDictionary<string, string[]> fieldErrors)
+        public static new ServiceResult<T> Invalid(IDictionary<string, string[]> fieldErrors)
         {
             return new ServiceResult<T>(default, ServiceErrorType.Validation, null, fieldErrors);
+        }
+
+        public static ServiceResult<T> From(ServiceResult failure)
+        {
+            return new ServiceResult<T>(default, failure.ErrorType, failure.ErrorMessage, failure.FieldErrors);
         }
     }
 }

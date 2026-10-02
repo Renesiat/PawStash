@@ -12,9 +12,6 @@ namespace PawStash.DAL.EntityTypeConfigurations.FileSystem
             builder.Property(x => x.Url)
                 .HasColumnName("link_url")
                 .HasMaxLength(FileSystemItemRules.MaxLinkUrlLength);
-
-            builder.Property(x => x.Description)
-                .HasColumnName("link_description");
         }
     }
 }

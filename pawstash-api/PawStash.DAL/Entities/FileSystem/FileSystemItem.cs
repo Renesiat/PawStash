@@ -14,6 +14,12 @@ namespace PawStash.DAL.Entities.FileSystem
 
         public string NameLowercase { get; private set; } = string.Empty;
 
+        public string? Description { get; set; }
+
+        public string? CoverImagePath { get; set; }
+
+        public string? CoverImageMimeType { get; set; }
+
         public DateTimeOffset CreatedAt { get; set; }
 
         public DateTimeOffset UpdatedAt { get; set; }

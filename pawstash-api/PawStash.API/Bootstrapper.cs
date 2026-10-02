@@ -1,8 +1,11 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.OpenApi;
+using PawStash.API.Filters;
 using PawStash.BLL;
 using PawStash.Common.Rules;
 using PawStash.DAL.Context;
 using PawStash.DAL.Entities;
+using Swashbuckle.AspNetCore.SwaggerGen;
 
 namespace PawStash.API
 {
@@ -13,11 +16,18 @@ namespace PawStash.API
             string connectionString = builder.Configuration.GetConnectionString("Default")
                 ?? throw new InvalidOperationException("Connection string 'Default' is not configured.");
 
+            string filesRootPath = Path.Combine(
+                builder.Environment.ContentRootPath,
+                builder.Configuration["Storage:FilesPath"] ?? "data/files");
+
             builder.Services.AddControllers(options =>
-                options.SuppressImplicitRequiredAttributeForNonNullableReferenceTypes = true);
+            {
+                options.SuppressImplicitRequiredAttributeForNonNullableReferenceTypes = true;
+                options.Filters.Add<AllowedEmailFilter>();
+            });
             builder.Services.AddEndpointsApiExplorer();
-            builder.Services.AddSwaggerGen();
-            builder.Services.RegisterServices(connectionString);
+            builder.Services.AddSwaggerGen(AddEmailHeaderToSwagger);
+            builder.Services.RegisterServices(connectionString, filesRootPath);
 
             return builder;
         }
@@ -46,6 +56,24 @@ namespace PawStash.API
             {
                 await AddDevTestEmailAsync(context, app.Configuration["DevTestEmail"]);
             }
+        }
+
+        private static void AddEmailHeaderToSwagger(SwaggerGenOptions options)
+        {
+            const string schemeName = "UserEmail";
+
+            options.AddSecurityDefinition(schemeName, new OpenApiSecurityScheme
+            {
+                Type = SecuritySchemeType.ApiKey,
+                In = ParameterLocation.Header,
+                Name = AllowedEmailFilter.HeaderName,
+                Description = "An allowed email, for example test@test.com"
+            });
+
+            options.AddSecurityRequirement(document => new OpenApiSecurityRequirement
+            {
+                [new OpenApiSecuritySchemeReference(schemeName, document)] = []
+            });
         }
 
         private static async Task AddDevTestEmailAsync(PawStashContext context, string? devTestEmail)

@@ -51,7 +51,9 @@ startup instead), the `{ data, errors }` response wrapper, AutoMapper, generic r
 Database names are lowercase snake_case with descriptive names (`users.email`). Server code follows
 `pawstash-api/.editorconfig` (copied from `sw-api`): explicit types, block-scoped namespaces, no comments.
 
-Swagger UI (Development only): http://localhost:5094/swagger
+Swagger UI (Development only): http://localhost:5094/swagger. Every endpoint except login needs an
+allowed email in the `X-User-Email` header: click **Authorize** in Swagger and enter one (for example
+`test@test.com`).
 
 ## Docs
 
