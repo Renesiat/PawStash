@@ -1,0 +1,21 @@
+namespace PawStash.DAL.Entities.FileSystem
+{
+    public abstract class FileSystemItem
+    {
+        public Guid ItemId { get; set; }
+
+        public string OwnerEmail { get; set; } = string.Empty;
+
+        public Guid? ParentFolderId { get; set; }
+
+        public Folder? ParentFolder { get; set; }
+
+        public string Name { get; set; } = string.Empty;
+
+        public string NameLowercase { get; private set; } = string.Empty;
+
+        public DateTimeOffset CreatedAt { get; set; }
+
+        public DateTimeOffset UpdatedAt { get; set; }
+    }
+}
