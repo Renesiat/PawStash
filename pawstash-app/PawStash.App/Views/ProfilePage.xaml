@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:controls="clr-namespace:PawStash.Controls"
+             x:Class="PawStash.Views.ProfilePage"
+             Shell.NavBarIsVisible="False">
+
+    <Grid>
+        <VerticalStackLayout Padding="16,16,16,0" Spacing="12">
+            <Label Text="Профіль" FontSize="20" FontAttributes="Bold" />
+            <Label x:Name="EmailLabel" FontSize="16" />
+            <Button Text="Вийти" Clicked="OnLogoutClicked" HorizontalOptions="Start" />
+        </VerticalStackLayout>
+
+        <controls:BottomBar ActiveTab="Profile" ItemsCreated="OnItemsCreated" />
+    </Grid>
+</ContentPage>

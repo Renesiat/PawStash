@@ -11,7 +11,10 @@
         <ShellContent ContentTemplate="{DataTemplate views:LoginPage}" />
     </ShellItem>
     <ShellItem x:Name="HomeItem" Route="home">
-        <ShellContent ContentTemplate="{DataTemplate views:HomePage}" />
+        <ShellContent ContentTemplate="{DataTemplate views:FolderPage}" />
+    </ShellItem>
+    <ShellItem Route="profile">
+        <ShellContent ContentTemplate="{DataTemplate views:ProfilePage}" />
     </ShellItem>
 
 </Shell>

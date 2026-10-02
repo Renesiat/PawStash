@@ -1,10 +1,8 @@
-using PawStash.Common.Enums;
-
 namespace PawStash.API.Models
 {
     public class FileSystemItemPostForm
     {
-        public FileSystemItemType? ItemType { get; set; }
+        public string? ItemType { get; set; }
 
         public Guid? ParentFolderId { get; set; }
 

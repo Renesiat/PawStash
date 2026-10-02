@@ -130,6 +130,41 @@ namespace PawStash.Common.Rules
             return ValidateFile(fileName, sizeBytes, ImageMimeTypes, MaxCoverImageSizeBytes, "Для картинки підходять");
         }
 
+        public static IReadOnlyCollection<string> UploadFileExtensions { get; } =
+            [.. ImageMimeTypes.Keys, .. DocumentMimeTypes.Keys];
+
+        public static IReadOnlyCollection<string> UploadMimeTypes { get; } =
+            ImageMimeTypes.Values.Concat(DocumentMimeTypes.Values).Select(x => x.Split(';')[0]).Distinct().ToList();
+
+        public static IReadOnlyCollection<string> GetFileExtensions(FileSystemItemType itemType)
+        {
+            return itemType == FileSystemItemType.Photo ? ImageMimeTypes.Keys : DocumentMimeTypes.Keys;
+        }
+
+        public static IReadOnlyCollection<string> GetFileMimeTypes(FileSystemItemType itemType)
+        {
+            Dictionary<string, string> mimeTypes = itemType == FileSystemItemType.Photo ? ImageMimeTypes : DocumentMimeTypes;
+
+            return mimeTypes.Values.Select(x => x.Split(';')[0]).Distinct().ToList();
+        }
+
+        public static FileSystemItemType? GetUploadedFileType(string fileName)
+        {
+            string extension = Path.GetExtension(fileName);
+
+            if (ImageMimeTypes.ContainsKey(extension))
+            {
+                return FileSystemItemType.Photo;
+            }
+
+            if (DocumentMimeTypes.ContainsKey(extension))
+            {
+                return FileSystemItemType.Document;
+            }
+
+            return null;
+        }
+
         public static string? GetMimeType(string fileName)
         {
             string extension = Path.GetExtension(fileName);

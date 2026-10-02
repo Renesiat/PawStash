@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:PawStash.ViewModels"
+             xmlns:controls="clr-namespace:PawStash.Controls"
+             xmlns:behaviors="clr-namespace:PawStash.Behaviors"
+             x:Class="PawStash.Views.FolderPage"
+             x:DataType="vm:FolderViewModel"
+             Shell.NavBarIsVisible="False">
+
+    <Grid>
+        <Grid RowDefinitions="Auto,Auto,*" Padding="16,16,16,0" RowSpacing="8">
+
+            <ScrollView Orientation="Horizontal" HorizontalScrollBarVisibility="Never">
+                <HorizontalStackLayout BindableLayout.ItemsSource="{Binding Path}" Spacing="6">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="vm:FolderPathSegment">
+                            <HorizontalStackLayout Spacing="6">
+                                <Label Text="›" FontSize="20" IsVisible="{Binding ShowSeparator}" TextColor="#8E8E93" VerticalOptions="Center" />
+                                <Label Text="{Binding Name}" FontSize="20" FontAttributes="{Binding Weight}" VerticalOptions="Center">
+                                    <Label.GestureRecognizers>
+                                        <TapGestureRecognizer Tapped="OnPathSegmentTapped" />
+                                    </Label.GestureRecognizers>
+                                </Label>
+                            </HorizontalStackLayout>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </HorizontalStackLayout>
+            </ScrollView>
+
+            <Label Grid.Row="1" Text="{Binding Error}" IsVisible="{Binding HasError}" TextColor="Red" />
+
+            <CollectionView Grid.Row="2" ItemsSource="{Binding Items}" SelectionMode="None">
+                <CollectionView.EmptyView>
+                    <Label Text="Тут поки порожньо" TextColor="#8E8E93" HorizontalTextAlignment="Center" Margin="0,40,0,0" />
+                </CollectionView.EmptyView>
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="vm:FolderItemViewModel">
+                        <Grid ColumnDefinitions="44,*" ColumnSpacing="12" Padding="0,8" BackgroundColor="Transparent">
+                            <Grid.Behaviors>
+                                <behaviors:TapAndLongPressBehavior Tapped="OnItemTapped" LongPressed="OnItemLongPressed" />
+                            </Grid.Behaviors>
+                            <Image Source="{Binding TypeIcon}" WidthRequest="26" HeightRequest="26" IsVisible="{Binding HasNoCover}" />
+                            <Border WidthRequest="44" HeightRequest="44" StrokeThickness="0" StrokeShape="RoundRectangle 8" IsVisible="{Binding HasCover}">
+                                <Image Source="{Binding CoverImage}" Aspect="AspectFill" WidthRequest="44" HeightRequest="44" />
+                            </Border>
+                            <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="2">
+                                <Label Text="{Binding Name}" FontSize="16" LineBreakMode="TailTruncation" />
+                                <Label Text="{Binding Subtitle}" FontSize="13" TextColor="#8E8E93" LineBreakMode="TailTruncation" />
+                            </VerticalStackLayout>
+                        </Grid>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+                <CollectionView.Footer>
+                    <Grid HeightRequest="140" />
+                </CollectionView.Footer>
+            </CollectionView>
+        </Grid>
+
+        <controls:BottomBar ActiveTab="Home" CurrentFolderId="{Binding FolderId}" ItemsCreated="OnItemsCreated" />
+    </Grid>
+</ContentPage>

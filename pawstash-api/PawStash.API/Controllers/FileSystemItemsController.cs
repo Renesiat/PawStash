@@ -3,6 +3,7 @@ using PawStash.API.Models;
 using PawStash.BLL.Interfaces;
 using PawStash.BLL.Models;
 using PawStash.BLL.Results;
+using PawStash.Common.Enums;
 using PawStash.Common.Models.DTO.FileSystem;
 using PawStash.Common.Rules;
 
@@ -63,9 +64,16 @@ namespace PawStash.API.Controllers
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
         public async Task<IActionResult> CreateItem([FromForm] FileSystemItemPostForm fileSystemItemPostForm)
         {
+            if (!TryParseItemType(fileSystemItemPostForm.ItemType, out FileSystemItemType? itemType))
+            {
+                ModelState.AddModelError(nameof(FileSystemItemPostForm.ItemType), "Невідомий тип елемента.");
+
+                return ValidationProblem(ModelState);
+            }
+
             FileSystemItemInput fileSystemItemInput = new()
             {
-                ItemType = fileSystemItemPostForm.ItemType,
+                ItemType = itemType,
                 ParentFolderId = fileSystemItemPostForm.ParentFolderId,
                 Name = fileSystemItemPostForm.Name,
                 Description = fileSystemItemPostForm.Description,
@@ -150,6 +158,25 @@ namespace PawStash.API.Controllers
             ServiceResult<FileContent> result = await _fileSystemService.GetCoverImage(itemId);
 
             return ResolveFileResponse(result);
+        }
+
+        private static bool TryParseItemType(string? value, out FileSystemItemType? itemType)
+        {
+            itemType = null;
+
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return true;
+            }
+
+            if (Enum.TryParse(value.Trim(), true, out FileSystemItemType parsed) && Enum.IsDefined(parsed))
+            {
+                itemType = parsed;
+
+                return true;
+            }
+
+            return false;
         }
 
         private static FileUpload? ToFileUpload(IFormFile? formFile)

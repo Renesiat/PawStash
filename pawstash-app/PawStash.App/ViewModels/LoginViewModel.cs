@@ -48,7 +48,7 @@ public partial class LoginViewModel(AuthService auth) : ObservableObject
 			Email = InitialEmail;
 			await Shell.Current.GoToAsync("//home");
 		}
-		catch (LoginException ex)
+		catch (ApiException ex)
 		{
 			Error = ex.Message;
 		}

@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="PawStash.Controls.BottomBar">
+
+    <ContentView.Resources>
+        <LinearGradientBrush x:Key="PlusFillLight" StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="#9378FF" Offset="0" />
+            <GradientStop Color="#5B3BF2" Offset="1" />
+        </LinearGradientBrush>
+        <SolidColorBrush x:Key="PlusFillDark" Color="#1C1C20" />
+        <LinearGradientBrush x:Key="PlusRingDark" StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="#B4A0FF" Offset="0" />
+            <GradientStop Color="#6A4BFF" Offset="1" />
+        </LinearGradientBrush>
+        <SolidColorBrush x:Key="NoStroke" Color="Transparent" />
+        <Style x:Key="MenuLabel" TargetType="Label">
+            <Setter Property="FontSize" Value="16" />
+            <Setter Property="VerticalOptions" Value="Center" />
+            <Setter Property="TextColor" Value="{AppThemeBinding Light=#1C1C1E, Dark=#F2F2F7}" />
+        </Style>
+    </ContentView.Resources>
+
+    <Grid InputTransparent="True" CascadeInputTransparent="False">
+
+        <BoxView x:Name="Dimmer" Color="Black" Opacity="0" IsVisible="False">
+            <BoxView.GestureRecognizers>
+                <TapGestureRecognizer Tapped="OnDimmerTapped" />
+            </BoxView.GestureRecognizers>
+        </BoxView>
+
+        <Border x:Name="CreateMenu"
+                IsVisible="False"
+                Opacity="0"
+                VerticalOptions="End"
+                HorizontalOptions="Center"
+                WidthRequest="230"
+                Margin="0,0,0,118"
+                Padding="6"
+                StrokeThickness="0"
+                StrokeShape="RoundRectangle 22"
+                BackgroundColor="{AppThemeBinding Light=White, Dark=#2C2C31}">
+            <Border.Shadow>
+                <Shadow Brush="Black" Opacity="0.18" Radius="24" Offset="0,8" />
+            </Border.Shadow>
+            <VerticalStackLayout>
+                <Grid ColumnDefinitions="40,*" HeightRequest="50" Padding="10,0">
+                    <Grid.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnCreateLinkTapped" />
+                    </Grid.GestureRecognizers>
+                    <Image Source="icon_type_link.png" WidthRequest="22" HeightRequest="22" HorizontalOptions="Start" />
+                    <Label Grid.Column="1" Text="Посилання" Style="{StaticResource MenuLabel}" />
+                </Grid>
+                <Grid ColumnDefinitions="40,*" HeightRequest="50" Padding="10,0">
+                    <Grid.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnCreateNoteTapped" />
+                    </Grid.GestureRecognizers>
+                    <Image Source="icon_type_note.png" WidthRequest="22" HeightRequest="22" HorizontalOptions="Start" />
+                    <Label Grid.Column="1" Text="Нотатка" Style="{StaticResource MenuLabel}" />
+                </Grid>
+                <Grid ColumnDefinitions="40,*" HeightRequest="50" Padding="10,0">
+                    <Grid.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnCreateFolderTapped" />
+                    </Grid.GestureRecognizers>
+                    <Image Source="icon_type_folder.png" WidthRequest="22" HeightRequest="22" HorizontalOptions="Start" />
+                    <Label Grid.Column="1" Text="Папка" Style="{StaticResource MenuLabel}" />
+                </Grid>
+                <Grid ColumnDefinitions="40,*" HeightRequest="50" Padding="10,0">
+                    <Grid.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnUploadFileTapped" />
+                    </Grid.GestureRecognizers>
+                    <Image Source="icon_upload_file.png" WidthRequest="22" HeightRequest="22" HorizontalOptions="Start" />
+                    <Label Grid.Column="1" Text="Файл" Style="{StaticResource MenuLabel}" />
+                </Grid>
+            </VerticalStackLayout>
+        </Border>
+
+        <Grid VerticalOptions="End" HeightRequest="116" Margin="4,0,4,8">
+            <GraphicsView x:Name="BarCanvas" />
+
+            <Grid RowDefinitions="34,*" ColumnDefinitions="*,100,*" Padding="12,0,12,12">
+
+                <Grid Grid.Row="1" Grid.Column="0" BackgroundColor="Transparent">
+                    <Grid.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnHomeTapped" />
+                    </Grid.GestureRecognizers>
+                    <VerticalStackLayout Spacing="5" HorizontalOptions="Center" VerticalOptions="Center">
+                        <Image x:Name="HomeIcon" WidthRequest="26" HeightRequest="26" />
+                        <Ellipse x:Name="HomeDot" WidthRequest="5" HeightRequest="5" Fill="#7C5CFF" HorizontalOptions="Center" />
+                    </VerticalStackLayout>
+                </Grid>
+
+                <Grid Grid.Row="1" Grid.Column="2" BackgroundColor="Transparent">
+                    <Grid.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnProfileTapped" />
+                    </Grid.GestureRecognizers>
+                    <VerticalStackLayout Spacing="5" HorizontalOptions="Center" VerticalOptions="Center">
+                        <Image x:Name="ProfileIcon" WidthRequest="26" HeightRequest="26" />
+                        <Ellipse x:Name="ProfileDot" WidthRequest="5" HeightRequest="5" Fill="#7C5CFF" HorizontalOptions="Center" />
+                    </VerticalStackLayout>
+                </Grid>
+
+                <Border x:Name="PlusButton"
+                        Grid.RowSpan="2"
+                        Grid.Column="1"
+                        WidthRequest="64"
+                        HeightRequest="64"
+                        Margin="0,34,0,0"
+                        HorizontalOptions="Center"
+                        VerticalOptions="Start"
+                        StrokeShape="Ellipse"
+                        Background="{AppThemeBinding Light={StaticResource PlusFillLight}, Dark={StaticResource PlusFillDark}}"
+                        Stroke="{AppThemeBinding Light={StaticResource NoStroke}, Dark={StaticResource PlusRingDark}}"
+                        StrokeThickness="{AppThemeBinding Light=0, Dark=3}">
+                    <Border.Shadow>
+                        <Shadow Brush="#7C5CFF" Opacity="0.55" Radius="22" Offset="0,6" />
+                    </Border.Shadow>
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnPlusTapped" />
+                    </Border.GestureRecognizers>
+                    <Image x:Name="PlusIcon"
+                           Source="{AppThemeBinding Light=icon_plus_light.png, Dark=icon_plus_dark.png}"
+                           WidthRequest="28"
+                           HeightRequest="28" />
+                </Border>
+            </Grid>
+        </Grid>
+    </Grid>
+</ContentView>

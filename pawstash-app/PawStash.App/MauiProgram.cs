@@ -23,12 +23,23 @@ public static class MauiProgram
 				fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
 			});
 
-		builder.Services.AddSingleton(new AuthService(
-			new HttpClient { BaseAddress = new Uri(ApiBaseUrl), Timeout = TimeSpan.FromSeconds(15) }));
+		builder.Services.AddSingleton<Session>();
+		builder.Services.AddSingleton(provider => new ApiClient(
+			new HttpClient { BaseAddress = new Uri(ApiBaseUrl), Timeout = TimeSpan.FromSeconds(60) },
+			provider.GetRequiredService<Session>()));
+		builder.Services.AddSingleton<AuthService>();
+		builder.Services.AddSingleton<FileSystemApi>();
+		builder.Services.AddSingleton<ItemCreationService>();
 
 		builder.Services.AddTransient<LoginViewModel>();
 		builder.Services.AddTransient<LoginPage>();
-		builder.Services.AddTransient<HomePage>();
+		builder.Services.AddTransient<FolderViewModel>();
+		builder.Services.AddTransient<FolderPage>();
+		builder.Services.AddTransient<ItemViewModel>();
+		builder.Services.AddTransient<ItemPage>();
+		builder.Services.AddTransient<ViewerViewModel>();
+		builder.Services.AddTransient<ViewerPage>();
+		builder.Services.AddTransient<ProfilePage>();
 
 #if DEBUG
 		builder.Logging.AddDebug();

@@ -1,8 +1,8 @@
 # File system integration plan
 
-**Status:** revised on 2026-10-02 for one general item endpoint (Alina's request). All decisions are
-answered (section 11). Stages 0–1 are done. Section 8 was revised for a bottom bar with a `+` button
-(Alina's request); its open questions are in section 12. The app (stages 2–4) starts after they are answered.
+**Status:** revised on 2026-10-02 for one general item endpoint (Alina's request). Decisions are in
+section 11; questions from stage 3 wait in section 12. Stages 0–1 are done. The app is mobile only for now
+(decisions 33–37): Android, checked on the emulator. Stages 1a, 2 and 3 are done too. Next: stage 4.
 **Updated:** 2026-10-02
 
 UI strings are quoted exactly as they appear in the app (Ukrainian).
@@ -30,7 +30,7 @@ Links are expected to be the most common item, so they come first in the app.
 - a path at the top (`Головна › Рецепти › Супи`), every segment clickable;
 - sorting: folders first, then files; by name, modified date or type.
 
-**Out of scope (next steps):** custom fields, tags, search, OCR, design, trash, copying, drag and drop,
+**Out of scope (next steps):** custom fields, tags, search, OCR, design beyond the bottom bar, trash, copying, drag and drop,
 multi-select, offline mode, sharing between users, server-side thumbnails, Office formats (docx, xlsx).
 
 ## 2. How the file system maps onto the database
@@ -143,6 +143,9 @@ What matters here:
 | | `Validators/FileSystem/*Validator.cs` | FluentValidation on top of `FileSystemItemRules`; content rules depend on the type |
 | | `Interfaces/IFileStorage.cs`, `Implementations/LocalFileStorage.cs` | Saving, reading and deleting uploaded files and cover images |
 | | `Results/ServiceResult.cs` | Service results with and without data (delete returns no data) |
+| | `Mappers/FileSystemItemMapper.cs` | Entity → DTO as LINQ projections, so folder listings never load note text |
+| | `Models/FileUpload.cs`, `Models/FileContent.cs`, `Models/FolderNode.cs` | A file coming in, a file going out, a folder in the in-memory tree |
+| | `Validators/Extensions/RuleBuilderExtensions.cs` | `Satisfies(...)`: plugs the `FileSystemItemRules` checks into FluentValidation |
 | `PawStash.API` | `Filters/AllowedEmailFilter.cs`, `Filters/AllowWithoutEmailAttribute.cs` | Checks `X-User-Email` on every request except login; 401 without it |
 | | `Controllers/FileSystemItemsController.cs` | Every endpoint from section 6 |
 | | `Models/FileSystemItemPostForm.cs`, `FileSystemItemPutForm.cs` | The multipart forms for create and edit |
@@ -258,8 +261,10 @@ against `users` and returns 401 if it is missing or unknown. Errors come back as
   returns 409 with a readable message.
 - **Simultaneous edits.** The last save wins.
 - **Files on disk.** Uploaded files and cover images are stored in `pawstash-api/PawStash.API/data/files/`,
-  which is kept out of git. They are named by `item_id`, so names the user sees can change independently.
-  They are removed from disk after their rows are deleted.
+  which is kept out of git. They are named by `item_id` (`{item_id}-file-{random}.ext`,
+  `{item_id}-cover-{random}.ext`), so names the user sees can change independently. A replacement is
+  written next to the old file, and the old one is removed only after a successful save. Files are removed
+  from disk after their rows are deleted.
 
 ## 8. App
 
@@ -268,24 +273,34 @@ reference: [`docs/images/bottom-bar-reference.png`](images/bottom-bar-reference.
 
 - A rounded bar floats above the content, with a bump in the middle.
 - In the bump sits a raised round `+` button: accent purple with a soft glow.
-- On either side of it are tabs (open question 1). The active tab has a small dot under its icon.
-- Light and dark variants (open question 4).
+- On either side of it are the tabs `Головна` and `Профіль`. The active tab has a small dot under its icon.
+- Light and dark variants, following the device setting.
 
-**Creating an item.** `+` opens a creation menu (open question 2) with `Посилання` (first, the main action),
+**Creating an item.** `+` opens a small menu above the bar with `Посилання` (first, the main action),
 `Нотатка`, `Папка`, `Файл`. The new item goes into the folder that is open at that moment.
 
 - `Файл` opens the system file picker. Several files can be picked; each one is sent as its own create
   request. Its type (photo or document) is taken from the file extension and sent explicitly.
 - The other options open `ItemPage` in create mode.
 
+**Using an item (decision 38).**
+
+- **Tapping an item opens it:**
+  - folder → goes into the folder;
+  - link → the browser;
+  - photo, note, text document (txt, md, csv, json) → `ViewerPage` in the app;
+  - PDF → the device's viewer. If the device has no PDF viewer, a message says so.
+- **Holding an item opens a menu:** `Редагувати`, `Перемістити`, `Видалити`. There is no `⋯` button.
+
 | Page | What it does |
 |---|---|
-| `FolderPage` (replaces the `HomePage` placeholder) | Path at the top; the list, each row with its cover image or, without one, the type icon; sorting. Each row has a `⋯` menu: open, edit, move, delete. An empty folder shows `Тут поки порожньо`. No create buttons here: creating is in the bottom bar |
-| `ItemPage` | One page to create, open and edit any item. Content field by type: URL, text, a file picker, or none for folders. Plus name, description, cover image picker, `Зберегти`. Links open in the browser; photos and text show in the app; a PDF opens in the device's viewer |
+| `FolderPage` (replaces the `HomePage` placeholder) | Path at the top; the list, each row with its cover image or, without one, the type icon; sorting (stage 4); tap / hold as above. An empty folder shows `Тут поки порожньо`. No create buttons here: creating is in the bottom bar |
+| `ItemPage` | Only the form to create and edit an item. Content field by type: URL for a link, text for a note, `Замінити файл` for a photo or document, none for a folder. Plus name, description and a cover image picked from the gallery (it can also be removed). `Зберегти` returns to the folder |
+| `ViewerPage` | Opens a photo full screen, or a text (a note or a text document), with the name at the top |
 | `MovePage` | Browse folders only, then `Перемістити сюди`. The item itself and the folders inside it can't be picked |
-| `ProfilePage` | The signed-in email and `Вийти` (if the profile tab is kept, open question 1) |
+| `ProfilePage` | The signed-in email and `Вийти` |
 
-**Design scope:** open question 3.
+**Design scope:** only the bottom bar and the creation menu look like the reference now; the pages stay plain until a separate design stage.
 
 **How it is built.** MAUI's own tab bar can't draw a raised centre button with a bump, so:
 
@@ -294,7 +309,7 @@ reference: [`docs/images/bottom-bar-reference.png`](images/bottom-bar-reference.
 - icons are SVG files in `Resources/Images`, from an open-licensed set (Lucide, ISC licence).
 
 **Navigation:** the root is `//home`, then `folder?itemId=`, `item?itemId=` (open/edit),
-`item?itemType=&parentFolderId=` (create), `move?itemId=`, `//profile`.
+`item?itemType=&parentFolderId=` (create), `viewer?itemId=`, `move?itemId=`, `//profile`.
 
 **Behaviour:**
 
@@ -311,8 +326,9 @@ Each stage ends with a working version, checked through Swagger and by clicking 
 |---|---|---|
 | 0 | **Database** | `CreateFileSystemItemsTable`, `AddDescriptionAndCoverImage` |
 | 1 | **Server on the general model** | One `FileSystemService` and one `FileSystemItemsController` for everything in section 6, the forms, validators, file and cover image storage |
-| 2 | **App: bottom bar and folders** | `BottomBar` with `+` and the creation menu, `ApiClient`, `FileSystemApi`, `FolderPage`, `ProfilePage` (if kept) |
-| 3 | **App: items** | `ItemPage`: create, open and edit any type; opening links and files |
+| 1a | **Android setup** | JDK 17, the `maui-android` workload, the Android SDK, the emulator with a phone image; the app gets an Android target next to Windows; a debug-only setting lets it call the local API over plain HTTP (`10.0.2.2:5094` from the emulator) |
+| 2 | **App: bottom bar and folders** | `BottomBar` with `+` and the creation menu, `ApiClient`, `FileSystemApi`, `FolderPage`, `ProfilePage`. Also decision 30 on the server |
+| 3 | **App: items** | Tap to open / hold for the menu, `ItemPage` (create and edit), `ViewerPage`, opening links and PDFs |
 | 4 | **App: move and sorting** | `MovePage`, list sorting |
 
 **Progress (2026-10-02):** stages 0 and 1 are done. The server was checked over HTTP:
@@ -327,7 +343,38 @@ Each stage ends with a working version, checked through Swagger and by clicking 
 - isolation between emails;
 - cascade delete.
 
-The app (stages 2–4) is next.
+Stage 1a is done as well (2026-10-02):
+
+- JDK 17, `maui-android`, the Android SDK and the `PawStash_Phone` emulator (Android 16, hardware-accelerated) are installed per user;
+- the app builds for Android and Windows;
+- on the emulator the login works against the local API (`10.0.2.2:5094`, plain HTTP allowed in Debug only);
+- `run-android.cmd` starts the emulator if needed and runs the app.
+
+Stage 2 is done as well (2026-10-02), checked on the emulator in light and dark themes:
+
+- the bottom bar with `Головна`, `+` and `Профіль`;
+- the `+` menu;
+- `Файл` through the Android file picker: several files at once, type taken from the extension;
+- `FolderPage`: path, cover images, type icons, sizes, nested folders, path jumps, empty folder text;
+- delete with confirmation;
+- `ProfilePage` with `Вийти`;
+- decision 30 on the server.
+
+Stage 3 is done as well (2026-10-02), checked on the emulator, the new pages in light and dark themes:
+
+- tapping opens an item: a folder goes inside, a link opens in Chrome, a photo, note or text document opens in
+  `ViewerPage`, a PDF opens in the device's viewer (Google Drive on the emulator);
+- without a PDF viewer the message appears (checked by switching Drive off for a moment);
+- holding opens `Редагувати`, `Перемістити`, `Видалити`, and a hold doesn't also count as a tap;
+- `ItemPage` creates a link, a note and a folder from the `+` menu, in the open folder, with default names;
+- `ItemPage` edits name, description, content (`Замінити файл` included) and the cover image: picked from the
+  gallery or removed;
+- the app's own checks (address, empty note) and server errors (name taken) show as red text;
+- after `Зберегти` the app returns to the folder, which shows the change.
+
+Until stage 4 arrives, `Перемістити` shows «Ще не готово».
+
+Stage 4 is next.
 
 ## 10. Delivery process
 
@@ -370,17 +417,36 @@ The app (stages 2–4) is next.
 | 23 | A new cover image together with `removeCoverImage = true` | 400: «Або нова картинка, або видалення» |
 | 24 | Default name of a note | Its first line that isn't empty, cut to 255 characters |
 | 25 | Creating items in the app | From a `+` in a floating bottom bar, styled like `docs/images/bottom-bar-reference.png` |
+| 26 | Tabs next to `+` | `Головна` (the root folder) on the left, `Профіль` (email and `Вийти`) on the right |
+| 27 | What `+` opens | A small menu that pops up above the bar with four options |
+| 28 | Design now | The bottom bar and the creation menu look like the reference; the pages stay plain until a separate design stage |
+| 29 | Theme | Light and dark, following the device setting; purple accent as in the reference |
+| 30 | Unknown `itemType` in the form | A Ukrainian message: «Невідомий тип елемента» (done at the start of stage 2) |
+| 31 | Stored file names on disk | `{item_id}-file-{random}.ext` and `{item_id}-cover-{random}.ext` |
+| 32 | Helper files | Kept and listed in section 4 |
+| 33 | Platform | **Mobile only for now** (Alina, 2026-10-02): the app is built and tested as a phone app. Details: section 12 |
+| 34 | Mobile platform | Android |
+| 35 | Where the app runs while developing | The Android emulator on this PC |
+| 36 | The Windows build | Kept, as a quick developer check; real checks happen on Android |
+| 37 | Android setup | Its own step before stage 2 (section 9, stage 1a) |
+| 38 | Opening and editing | Tapping an item opens it (folder → inside, link → browser, photo / note / text document → `ViewerPage`, PDF → device viewer). Holding an item opens `Редагувати`, `Перемістити`, `Видалити`. No `⋯` button |
+| 39 | `ItemPage` | Only the create / edit form |
+| 40 | After `Зберегти` | Back to the folder, which shows the change |
+| 41 | Cover image source | The system photo gallery |
+| 42 | `Профіль` tab | Out of focus for now; it stays as it is |
+| 43 | Title bar hidden on the folder and profile pages | Kept for now |
+| 44 | Status bar icons follow the theme | Kept |
+| 45 | App helper files in section 4 | Not listed |
 
 ## 12. Open questions
 
-Questions 1–4 are about the bottom bar in section 8; 5–7 are small server gaps found in stage 1. They need Alina's answer before stage 2 starts.
+Found during stage 3. The app works as described in "Now" until Alina decides.
 
-| # | Question | Proposed | Alternatives |
-|---|---|---|---|
-| 1 | Which tabs sit next to `+`? The reference has four (home, chat, notifications, profile); the app has nothing for chat or notifications | `Головна` (the root folder) on the left, `Профіль` (email and `Вийти`) on the right | Only `Головна`; or keep places for future tabs (`Пошук`, `Теги`) hidden until those features exist |
-| 2 | What does `+` open? | A small menu that pops up above the bar with four options | A full-screen sheet with the four options |
-| 3 | How much design now? | The bottom bar and the creation menu look like the reference; the pages stay plain until a separate design stage | The whole app in the reference style now |
-| 4 | Theme | Light and dark, following the device setting; purple accent as in the reference | Light only for now |
-| 5 | An unknown `itemType` in the form (for example `video`) gets ASP.NET's English message «The value 'video' is not valid» | A Ukrainian message: «Невідомий тип елемента» | Leave it |
-| 6 | Stored file names on disk are `{item_id}-file-{random}.ext` and `{item_id}-cover-{random}.ext`. The random part lets a replacement be written next to the old file; the old one is removed only after a successful save | Keep | Plain `{item_id}.ext` |
-| 7 | Helper files not listed in section 4: `Mappers/FileSystemItemMapper.cs`, `Models/FileUpload.cs`, `Models/FileContent.cs`, `Models/FolderNode.cs`, `Validators/Extensions/RuleBuilderExtensions.cs` | Keep them and list them in section 4 | Fold them into other files |
+| # | Question | Now |
+|---|---|---|
+| 1 | `ItemPage` titles and labels | Titles `Нове посилання`, `Нова нотатка`, `Нова папка`, `Редагування`; fields `Адреса`, `Текст`, `Файл`, `Назва`, `Опис`, `Обкладинка`; buttons `Вибрати з галереї`, `Прибрати` |
+| 2 | Empty name field | Shows the default name in grey (`uk.wikipedia.org`, the note's first line, `Нова папка`) |
+| 3 | Description outside the form | Only the edit form shows it; `ViewerPage` shows the content only |
+| 4 | Status bar on pages with a title bar (login, `ItemPage`, `ViewerPage`) | Purple, the MAUI template default since stage 1a; on the folder and profile pages it matches the background |
+| 5 | Big text documents (up to 25 MB) in `ViewerPage` | Shown in full, so a very big file opens slowly |
+| 6 | Leaving `ItemPage` with unsaved changes | Leaves without asking |

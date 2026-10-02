@@ -36,7 +36,7 @@ Layered like SalvageWorks' `sw-api`, deliberately smaller: four server projects,
 | `pawstash-api/PawStash.BLL` | `Interfaces/` + `Implementations/` (services), `Validators/` (FluentValidation), `Results/ServiceResult`, `ServiceRegistration.cs` |
 | `pawstash-api/PawStash.DAL` | `Context/` (`PawStashContext` + `IPawStashContext`), `Entities/`, `EntityTypeConfigurations/`, `Migrations/` |
 | `pawstash-api/PawStash.Common` | `Models/DTO/<Feature>/`, `Rules/` (validation shared with the app). No server libraries: the app references it |
-| `pawstash-app/PawStash.App` | .NET MAUI client (Windows now, Android later) |
+| `pawstash-app/PawStash.App` | .NET MAUI client: Android (main target); the Windows build is kept as a developer check |
 | `docker-compose.yml` | PostgreSQL for local development |
 
 References: API → BLL, DAL · BLL → DAL, Common · DAL → Common · App → Common.
@@ -63,12 +63,14 @@ Plans and design notes live in [`docs/`](docs/):
 
 ## Build and run
 
+The app is a **phone app (Android)**; the Windows build is kept only as a quick developer check.
 Needs Docker running (for PostgreSQL).
 
 ```cmd
 run-api.cmd        :: starts PostgreSQL + API on http://localhost:5094 (applies migrations)
-run.cmd            :: in a second terminal: launches the Windows app
-build.cmd          :: compile everything without running
+run-android.cmd    :: in a second terminal: starts the emulator if needed and runs the app on it
+run.cmd            :: alternative quick check: the Windows build of the app
+build.cmd          :: compile the API and both app targets without running
 ```
 
 ## Sign-in
@@ -104,33 +106,31 @@ dotnet dotnet-ef migrations add <MeaningfulName> -p pawstash-api\PawStash.DAL -s
 (Use the SDK from `%USERPROFILE%\.dotnet`, see Toolchain above.) Read the generated migration before
 running the API. The history table is `ef_migrations_history`; its columns keep EF's own names.
 
-## Adding Android later
+## Android
 
-1. Uncomment the Android line in `pawstash-app/PawStash.App/PawStash.App.csproj`:
+Everything is installed per user, no admin rights needed:
 
-   ```xml
-   <TargetFrameworks>$(TargetFrameworks);net10.0-android</TargetFrameworks>
-   ```
+| What | Where |
+|---|---|
+| JDK 17 (Microsoft OpenJDK) | `%USERPROFILE%\.jdks\jdk-17.*` |
+| Android SDK (platform 36, build-tools, platform-tools, emulator) | `%LOCALAPPDATA%\Android\Sdk` |
+| Emulator image | `system-images;android-36;google_apis;x86_64` (Android 16) |
+| Virtual phone | `PawStash_Phone` (Pixel 7 profile), in `%USERPROFILE%\.android\avd` |
+| `maui-android` workload | in the user-local .NET SDK, next to `maui-windows` |
 
-2. Install **JDK 17**. The system JDK is 1.8, which is too old for modern Android Gradle.
-   Microsoft OpenJDK 17 has a per-user zip that needs no admin rights.
+`run-android.cmd` sets `JAVA_HOME` / `ANDROID_HOME`, starts `PawStash_Phone` if no device is connected,
+waits until Android has booted and deploys the app. The emulator uses the Windows Hypervisor Platform for
+speed (`emulator -accel-check` reports it as usable on this machine).
 
-3. Install the workload:
+From the emulator the app reaches the local API at `http://10.0.2.2:5094` (the emulator's address for
+the PC). Android blocks plain HTTP by default, so `Platforms/Android/MainApplication.cs` allows it in
+**Debug builds only** (`UsesCleartextTraffic`); Release builds keep the default.
 
-   ```cmd
-   "%USERPROFILE%\.dotnet\dotnet.exe" workload install maui-android
-   ```
+Screenshots without touching the emulator window:
 
-4. Let the SDK fetch the Android SDK and accept licenses:
-
-   ```cmd
-   "%USERPROFILE%\.dotnet\dotnet.exe" build -t:InstallAndroidDependencies -f net10.0-android ^
-     -p:AndroidSdkDirectory="%USERPROFILE%\android-sdk" ^
-     -p:JavaSdkDirectory="<path-to-jdk-17>" ^
-     -p:AcceptAndroidSDKLicenses=True
-   ```
-
-Budget roughly 5-10 GB of downloads.
+```cmd
+"%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe" exec-out screencap -p > screen.png
+```
 
 ## Known gotcha
 

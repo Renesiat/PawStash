@@ -2,11 +2,11 @@ using PawStash.Services;
 
 namespace PawStash.Views;
 
-public partial class HomePage : ContentPage
+public partial class ProfilePage : ContentPage
 {
 	readonly AuthService _auth;
 
-	public HomePage(AuthService auth)
+	public ProfilePage(AuthService auth)
 	{
 		InitializeComponent();
 		_auth = auth;
@@ -15,7 +15,7 @@ public partial class HomePage : ContentPage
 	protected override void OnAppearing()
 	{
 		base.OnAppearing();
-		SignedInLabel.Text = $"Ви увійшли як {_auth.CurrentEmail}";
+		EmailLabel.Text = $"Ви увійшли як {_auth.CurrentEmail}";
 	}
 
 	async void OnLogoutClicked(object? sender, EventArgs e)
@@ -23,4 +23,6 @@ public partial class HomePage : ContentPage
 		_auth.Logout();
 		await Shell.Current.GoToAsync("//login");
 	}
+
+	async void OnItemsCreated(object? sender, EventArgs e) => await Shell.Current.GoToAsync("//home");
 }
