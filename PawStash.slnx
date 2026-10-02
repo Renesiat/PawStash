@@ -1,9 +1,11 @@
 <Solution>
-  <Folder Name="/src/">
-    <Project Path="src/PawStash.Api/PawStash.Api.csproj" />
-    <Project Path="src/PawStash.Shared/PawStash.Shared.csproj" />
+  <Folder Name="/pawstash-api/">
+    <Project Path="pawstash-api/PawStash.API/PawStash.API.csproj" />
+    <Project Path="pawstash-api/PawStash.BLL/PawStash.BLL.csproj" />
+    <Project Path="pawstash-api/PawStash.DAL/PawStash.DAL.csproj" />
+    <Project Path="pawstash-api/PawStash.Common/PawStash.Common.csproj" />
   </Folder>
-  <Folder Name="/src/PawStash.App/">
-    <Project Path="src/PawStash.App/PawStash.csproj" />
+  <Folder Name="/pawstash-app/">
+    <Project Path="pawstash-app/PawStash.App/PawStash.App.csproj" />
   </Folder>
 </Solution>

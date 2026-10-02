@@ -7,7 +7,7 @@ namespace PawStash;
 
 public static class MauiProgram
 {
-	// Dev server from src/PawStash.Api. Android emulators reach the host machine at 10.0.2.2.
+	// Dev server from pawstash-api/PawStash.API. Android emulators reach the host machine at 10.0.2.2.
 	static string ApiBaseUrl => DeviceInfo.Platform == DevicePlatform.Android
 		? "http://10.0.2.2:5094/"
 		: "http://localhost:5094/";

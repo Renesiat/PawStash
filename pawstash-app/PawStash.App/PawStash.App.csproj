@@ -14,6 +14,7 @@
 
 		<OutputType>Exe</OutputType>
 		<RootNamespace>PawStash</RootNamespace>
+		<AssemblyName>PawStash</AssemblyName>
 		<UseMaui>true</UseMaui>
 		<SingleProject>true</SingleProject>
 		<ImplicitUsings>enable</ImplicitUsings>
@@ -75,7 +76,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-	  <ProjectReference Include="..\PawStash.Shared\PawStash.Shared.csproj" />
+	  <ProjectReference Include="..\..\pawstash-api\PawStash.Common\PawStash.Common.csproj" />
 	</ItemGroup>
 
 </Project>

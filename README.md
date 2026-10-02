@@ -28,12 +28,36 @@ no 8.x runtime and break them.
 
 ## Layout
 
+Layered like SalvageWorks' `sw-api`, deliberately smaller: four server projects, no extension libraries.
+
 | Path | What |
 |---|---|
-| `src/PawStash.App` | .NET MAUI client (Windows now, Android later) |
-| `src/PawStash.Api` | ASP.NET Core API + EF Core (PostgreSQL) |
-| `src/PawStash.Shared` | Code both sides use: request/response types, `EmailRules` validation |
+| `pawstash-api/PawStash.API` | Controllers (`BaseApiController.ResolveResponse`), `Bootstrapper.cs`, `Program.cs`, appsettings |
+| `pawstash-api/PawStash.BLL` | `Interfaces/` + `Implementations/` (services), `Validators/` (FluentValidation), `Results/ServiceResult`, `ServiceRegistration.cs` |
+| `pawstash-api/PawStash.DAL` | `Context/` (`PawStashContext` + `IPawStashContext`), `Entities/`, `EntityTypeConfigurations/`, `Migrations/` |
+| `pawstash-api/PawStash.Common` | `Models/DTO/<Feature>/`, `Rules/` (validation shared with the app). No server libraries: the app references it |
+| `pawstash-app/PawStash.App` | .NET MAUI client (Windows now, Android later) |
 | `docker-compose.yml` | PostgreSQL for local development |
+
+References: API → BLL, DAL · BLL → DAL, Common · DAL → Common · App → Common.
+
+A request flows `AuthController` → `IAuthService` (validates with `LoginPostDtoValidator`, queries
+`IPawStashContext`) → `ServiceResult<T>` → `ResolveResponse` turns it into 200 / 400 / 401 / 404 / 409
+(errors as standard ProblemDetails).
+
+Not taken from SalvageWorks, on purpose: Evolve and the separate DatabaseMigrator (EF migrations apply on
+startup instead), the `{ data, errors }` response wrapper, AutoMapper, generic repositories.
+
+Database names are lowercase snake_case with descriptive names (`users.email`). Server code follows
+`pawstash-api/.editorconfig` (copied from `sw-api`): explicit types, block-scoped namespaces, no comments.
+
+Swagger UI (Development only): http://localhost:5094/swagger
+
+## Docs
+
+Plans and design notes live in [`docs/`](docs/):
+
+- [`file-system-integration-plan.md`](docs/file-system-integration-plan.md) — folders, notes, links and photos: schema, layers, API, stages
 
 ## Build and run
 
@@ -47,14 +71,19 @@ build.cmd          :: compile everything without running
 
 ## Sign-in
 
-Email only, no password yet. The API accepts an email if it is in the `Users` table (one column, `Email`,
+Email only, no password yet. The API accepts an email if it is in the `users` table (one column, `email`,
 which is also the primary key). The initial migration seeds `1979stetsenko@gmail.com`. Emails are
 trimmed and lowercased before lookup, so store them lowercase.
+
+For quick testing, `test@test.com` is also allowed **in development only**. It is set as `DevTestEmail`
+in `pawstash-api/PawStash.API/appsettings.Development.json`, and the API inserts it on startup when running in
+Development (`Bootstrapper.PrepareDatabaseAsync`). It is deliberately not in a migration, because migrations also run on a hosted server, where a
+well-known email would let anyone in. If you ever copy the local database to a server, delete that row.
 
 Add another allowed email:
 
 ```cmd
-docker exec pawstash-db psql -U pawstash -c "insert into \"Users\" values ('someone@example.com')"
+docker exec pawstash-db psql -U pawstash -c "insert into users (email) values ('someone@example.com')"
 ```
 
 The app remembers the signed-in email on the device (MAUI `Preferences`) and opens straight to the
@@ -62,16 +91,20 @@ home page next launch. This is identification, not security: anyone who knows an
 
 ## Migrations
 
+EF Core migrations live in `PawStash.DAL/Migrations` and are applied automatically when the API starts.
+After changing an entity or its configuration:
+
 ```cmd
 dotnet tool restore
-dotnet dotnet-ef migrations add <Name> -p src\PawStash.Api -o Data\Migrations
+dotnet dotnet-ef migrations add <MeaningfulName> -p pawstash-api\PawStash.DAL -s pawstash-api\PawStash.API -o Migrations
 ```
 
-(Use the SDK from `%USERPROFILE%\.dotnet`, see Toolchain above.)
+(Use the SDK from `%USERPROFILE%\.dotnet`, see Toolchain above.) Read the generated migration before
+running the API. The history table is `ef_migrations_history`; its columns keep EF's own names.
 
 ## Adding Android later
 
-1. Uncomment the Android line in `src/PawStash.App/PawStash.csproj`:
+1. Uncomment the Android line in `pawstash-app/PawStash.App/PawStash.App.csproj`:
 
    ```xml
    <TargetFrameworks>$(TargetFrameworks);net10.0-android</TargetFrameworks>
@@ -103,4 +136,4 @@ Do **not** add `<MauiXamlInflator>SourceGen</MauiXamlInflator>` to the csproj. O
 claims `Platforms/Windows/App.xaml` (a WinUI file, not a MAUI one). The WinUI markup compiler still
 writes `App.g.i.cs` — which holds `Main` and `InitializeComponent` — but it never reaches the
 compiler, and the build dies with `CS5001` and `CS1061`. The template ships this property enabled;
-it was removed here. There is a comment in `PawStash.csproj` marking the spot (`src/PawStash.App/PawStash.csproj`).
+it was removed here. There is a comment in `pawstash-app/PawStash.App/PawStash.App.csproj` marking the spot.
