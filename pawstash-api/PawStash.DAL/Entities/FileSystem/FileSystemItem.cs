@@ -23,5 +23,7 @@ namespace PawStash.DAL.Entities.FileSystem
         public DateTimeOffset CreatedAt { get; set; }
 
         public DateTimeOffset UpdatedAt { get; set; }
+
+        public int PositionInFolder { get; set; }
     }
 }

@@ -27,6 +27,13 @@ public class ApiClient(HttpClient http, Session session)
 		return (await response.Content.ReadFromJsonAsync<T>())!;
 	}
 
+	public async Task<T> PutJsonAsync<T>(string url, object body)
+	{
+		using HttpResponseMessage response = await SendAsync(new HttpRequestMessage(HttpMethod.Put, url) { Content = JsonContent.Create(body) });
+
+		return (await response.Content.ReadFromJsonAsync<T>())!;
+	}
+
 	public async Task<T> SendFormAsync<T>(HttpMethod method, string url, MultipartFormDataContent form)
 	{
 		using HttpResponseMessage response = await SendAsync(new HttpRequestMessage(method, url) { Content = form });

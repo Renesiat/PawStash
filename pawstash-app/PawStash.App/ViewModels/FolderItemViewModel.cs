@@ -13,6 +13,14 @@ public partial class FolderItemViewModel(FileSystemItemDto item) : ObservableObj
 
 	public FileSystemItemType ItemType => item.ItemType;
 
+	public bool IsFolder => item.ItemType == FileSystemItemType.Folder;
+
+	public bool IsDropBefore => DropPlace == DropPlace.Before;
+
+	public bool IsDropInto => DropPlace == DropPlace.Into;
+
+	public bool IsDropAfter => DropPlace == DropPlace.After;
+
 	public string Name => item.Name;
 
 	public string? LinkUrl => item.LinkUrl;
@@ -33,6 +41,10 @@ public partial class FolderItemViewModel(FileSystemItemDto item) : ObservableObj
 
 	[ObservableProperty]
 	public partial ImageSource? CoverImage { get; set; }
+
+	[ObservableProperty]
+	[NotifyPropertyChangedFor(nameof(IsDropBefore), nameof(IsDropInto), nameof(IsDropAfter))]
+	public partial DropPlace DropPlace { get; set; }
 
 	public static string FormatSize(long bytes)
 	{

@@ -12,6 +12,12 @@ public partial class FolderViewModel(FileSystemApi api) : ObservableObject, IQue
 
 	bool _isOpening;
 
+	FolderItemViewModel? _draggedItem;
+
+	bool _isDropped;
+
+	bool _hasLeftDraggedItem;
+
 	public ObservableCollection<FolderItemViewModel> Items { get; } = [];
 
 	public ObservableCollection<FolderPathSegment> Path { get; } = [];
@@ -128,6 +134,107 @@ public partial class FolderViewModel(FileSystemApi api) : ObservableObject, IQue
 		}
 	}
 
+	public void StartDrag(FolderItemViewModel item)
+	{
+		_draggedItem = item;
+		_isDropped = false;
+		_hasLeftDraggedItem = false;
+	}
+
+	public DropPlace ShowDropPlace(FolderItemViewModel target, double y, double height)
+	{
+		if (_draggedItem is null || target == _draggedItem)
+		{
+			return DropPlace.None;
+		}
+
+		_hasLeftDraggedItem = true;
+
+		DropPlace place = target.IsFolder
+			? y < height / 4 ? DropPlace.Before : y > height * 3 / 4 ? DropPlace.After : DropPlace.Into
+			: y < height / 2 ? DropPlace.Before : DropPlace.After;
+
+		foreach (FolderItemViewModel item in Items)
+		{
+			item.DropPlace = item == target ? place : DropPlace.None;
+		}
+
+		return place;
+	}
+
+	public void HideDropPlace(FolderItemViewModel target)
+	{
+		target.DropPlace = DropPlace.None;
+	}
+
+	public bool CanDropOnPath(FolderPathSegment segment)
+	{
+		if (_draggedItem is null || segment.IsCurrent)
+		{
+			return false;
+		}
+
+		_hasLeftDraggedItem = true;
+
+		return true;
+	}
+
+	public async Task DropOnItemAsync(FolderItemViewModel target)
+	{
+		FolderItemViewModel? item = _draggedItem;
+		DropPlace place = target.DropPlace;
+
+		HideDropPlaces();
+
+		if (item is null || target == item || place == DropPlace.None)
+		{
+			return;
+		}
+
+		_isDropped = true;
+
+		if (place == DropPlace.Into)
+		{
+			await MoveAsync(item, target.ItemId);
+			return;
+		}
+
+		List<FolderItemViewModel> others = Items.Where(x => x != item).ToList();
+		int targetIndex = others.IndexOf(target);
+		FolderItemViewModel? before = place == DropPlace.Before
+			? target
+			: others.ElementAtOrDefault(targetIndex + 1);
+
+		await ReorderAsync(item, before);
+	}
+
+	public async Task DropOnPathAsync(FolderPathSegment segment)
+	{
+		FolderItemViewModel? item = _draggedItem;
+
+		if (item is null || segment.IsCurrent)
+		{
+			return;
+		}
+
+		_isDropped = true;
+		await MoveAsync(item, segment.ItemId);
+	}
+
+	public async Task EndDragAsync()
+	{
+		FolderItemViewModel? item = _draggedItem;
+		bool showMenu = item is not null && !_isDropped && !_hasLeftDraggedItem;
+
+		_draggedItem = null;
+		HideDropPlaces();
+
+		if (showMenu && DeviceInfo.Platform == DevicePlatform.Android)
+		{
+			await ShowMenuAsync(item!);
+		}
+	}
+
 	public async Task GoToAsync(FolderPathSegment segment)
 	{
 		if (segment.IsCurrent)
@@ -216,6 +323,55 @@ public partial class FolderViewModel(FileSystemApi api) : ObservableObject, IQue
 		catch (ApiException ex)
 		{
 			Error = ex.Message;
+		}
+	}
+
+	async Task MoveAsync(FolderItemViewModel item, Guid? targetFolderId)
+	{
+		Error = null;
+		Items.Remove(item);
+
+		try
+		{
+			await api.MoveAsync(item.ItemId, targetFolderId);
+		}
+		catch (ApiException ex)
+		{
+			await LoadAsync();
+			Error = ex.Message;
+		}
+	}
+
+	async Task ReorderAsync(FolderItemViewModel item, FolderItemViewModel? before)
+	{
+		Error = null;
+
+		int oldIndex = Items.IndexOf(item);
+		int newIndex = before is null ? Items.Count - 1 : Items.Where(x => x != item).ToList().IndexOf(before);
+
+		if (oldIndex == newIndex)
+		{
+			return;
+		}
+
+		Items.Move(oldIndex, newIndex);
+
+		try
+		{
+			await api.ChangePositionAsync(item.ItemId, before?.ItemId);
+		}
+		catch (ApiException ex)
+		{
+			await LoadAsync();
+			Error = ex.Message;
+		}
+	}
+
+	void HideDropPlaces()
+	{
+		foreach (FolderItemViewModel item in Items)
+		{
+			item.DropPlace = DropPlace.None;
 		}
 	}
 

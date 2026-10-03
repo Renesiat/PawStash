@@ -52,7 +52,7 @@ namespace PawStash.BLL.Implementations
 
             List<FileSystemItemDto> items = await OwnedItems
                 .Where(x => x.ParentFolderId == parentFolderId)
-                .OrderBy(x => x is Folder ? 0 : 1)
+                .OrderBy(x => x.PositionInFolder)
                 .ThenBy(x => x.NameLowercase)
                 .Select(FileSystemItemMapper.ToFileSystemItemDto)
                 .ToListAsync();
@@ -134,6 +134,7 @@ namespace PawStash.BLL.Implementations
             item.ItemId = Guid.CreateVersion7();
             item.OwnerEmail = _currentUser.Email;
             item.ParentFolderId = fileSystemItemInput.ParentFolderId;
+            item.PositionInFolder = await GetTopPosition(fileSystemItemInput.ParentFolderId);
             item.Name = name;
             item.Description = FileSystemItemRules.NormalizeDescription(fileSystemItemInput.Description);
 
@@ -270,6 +271,7 @@ namespace PawStash.BLL.Implementations
                 return ServiceResult<FileSystemItemDto>.From(nameCheck);
             }
 
+            item.PositionInFolder = await GetTopPosition(targetFolderId);
             item.ParentFolderId = targetFolderId;
 
             ServiceResult saveResult = await SaveChanges(item.Name);
@@ -277,6 +279,41 @@ namespace PawStash.BLL.Implementations
             if (!saveResult.IsSuccess)
             {
                 return ServiceResult<FileSystemItemDto>.From(saveResult);
+            }
+
+            return ServiceResult<FileSystemItemDto>.Success(FileSystemItemMapper.ToDto(item));
+        }
+
+        public async Task<ServiceResult<FileSystemItemDto>> ChangePosition(Guid itemId, ItemPositionPutDto itemPositionPutDto)
+        {
+            FileSystemItem? item = await OwnedItems.AsNoTracking().FirstOrDefaultAsync(x => x.ItemId == itemId);
+
+            if (item is null)
+            {
+                return ServiceResult<FileSystemItemDto>.Fail(ServiceErrorType.NotFound, "Елемент не знайдено.");
+            }
+
+            List<ItemPosition> siblings = await OwnedItems
+                .Where(x => x.ParentFolderId == item.ParentFolderId)
+                .OrderBy(x => x.PositionInFolder)
+                .ThenBy(x => x.NameLowercase)
+                .Select(x => new ItemPosition(x.ItemId, x.PositionInFolder))
+                .ToListAsync();
+
+            List<Guid> order = siblings.Select(x => x.ItemId).ToList();
+            Guid? beforeItemId = itemPositionPutDto.BeforeItemId;
+
+            if (beforeItemId is Guid id && !order.Contains(id))
+            {
+                return ServiceResult<FileSystemItemDto>.Fail(ServiceErrorType.NotFound, "Елемент не знайдено.");
+            }
+
+            if (beforeItemId != itemId)
+            {
+                order.Remove(itemId);
+                order.Insert(beforeItemId is Guid before ? order.IndexOf(before) : order.Count, itemId);
+
+                await SavePositions(order, siblings.ToDictionary(x => x.ItemId, x => x.PositionInFolder));
             }
 
             return ServiceResult<FileSystemItemDto>.Success(FileSystemItemMapper.ToDto(item));
@@ -572,7 +609,34 @@ namespace PawStash.BLL.Implementations
             return $"У цій папці вже є «{name}».";
         }
 
+        private async Task<int> GetTopPosition(Guid? folderId)
+        {
+            int? topPosition = await OwnedItems
+                .Where(x => x.ParentFolderId == folderId)
+                .MinAsync(x => (int?)x.PositionInFolder);
+
+            return topPosition is int position ? position - 1 : 0;
+        }
+
+        private async Task SavePositions(List<Guid> order, Dictionary<Guid, int> currentPositions)
+        {
+            for (int index = 0; index < order.Count; index++)
+            {
+                Guid itemId = order[index];
+                int position = index;
+
+                if (currentPositions[itemId] != position)
+                {
+                    await OwnedItems
+                        .Where(x => x.ItemId == itemId)
+                        .ExecuteUpdateAsync(x => x.SetProperty(y => y.PositionInFolder, position));
+                }
+            }
+        }
+
         private record StoredFilePaths(string? FilePath, string? CoverImagePath);
+
+        private record ItemPosition(Guid ItemId, int PositionInFolder);
 
         private record FileReference(string Path, string MimeType);
     }

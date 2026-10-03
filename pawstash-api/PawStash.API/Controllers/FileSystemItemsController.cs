@@ -125,6 +125,17 @@ namespace PawStash.API.Controllers
             return ResolveResponse(result);
         }
 
+        [HttpPut]
+        [Route("/api/file-system-items/{itemId:guid}/position")]
+        [ProducesResponseType(typeof(FileSystemItemDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> ChangePosition(Guid itemId, ItemPositionPutDto itemPositionPutDto)
+        {
+            ServiceResult<FileSystemItemDto> result = await _fileSystemService.ChangePosition(itemId, itemPositionPutDto);
+
+            return ResolveResponse(result);
+        }
+
         [HttpDelete]
         [Route("/api/file-system-items/{itemId:guid}")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]

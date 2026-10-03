@@ -87,6 +87,9 @@ namespace PawStash.DAL.EntityTypeConfigurations.FileSystem
             builder.Property(x => x.UpdatedAt)
                 .HasColumnName("updated_at");
 
+            builder.Property(x => x.PositionInFolder)
+                .HasColumnName("position_in_folder");
+
             builder.HasIndex(x => new { x.OwnerEmail, x.ParentFolderId, x.NameLowercase })
                 .IsUnique()
                 .AreNullsDistinct(false)

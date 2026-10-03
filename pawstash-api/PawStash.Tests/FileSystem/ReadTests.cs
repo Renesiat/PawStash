@@ -12,7 +12,7 @@ namespace PawStash.Tests.FileSystem
         }
 
         [Fact]
-        public async Task GetFolderContents_ListsFoldersFirstThenByNameIgnoringCase()
+        public async Task GetFolderContents_ListsNewestFirstWithoutPinningFolders()
         {
             await Create(ItemInputs.Note("текст", "борщ"));
             await Create(ItemInputs.Folder("Супи"));
@@ -21,7 +21,7 @@ namespace PawStash.Tests.FileSystem
 
             ServiceResult<List<FileSystemItemDto>> result = await Request(x => x.GetFolderContents(null));
 
-            Assert.Equal(new[] { "аперитиви", "Супи", "борщ", "Вареники" }, result.Data!.Select(x => x.Name));
+            Assert.Equal(new[] { "аперитиви", "Вареники", "Супи", "борщ" }, result.Data!.Select(x => x.Name));
         }
 
         [Fact]

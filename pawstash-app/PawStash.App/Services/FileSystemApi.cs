@@ -33,6 +33,12 @@ public class FileSystemApi(ApiClient api)
 	public Task<FileSystemItemDetailsDto> UpdateItemAsync(Guid itemId, ItemFormData data) =>
 		api.SendFormAsync<FileSystemItemDetailsDto>(HttpMethod.Put, $"{ItemsUrl}/{itemId}", BuildForm(data));
 
+	public Task<FileSystemItemDto> MoveAsync(Guid itemId, Guid? targetFolderId) =>
+		api.PutJsonAsync<FileSystemItemDto>($"{ItemsUrl}/{itemId}/parent-folder", new ItemParentFolderPutDto { TargetFolderId = targetFolderId });
+
+	public Task<FileSystemItemDto> ChangePositionAsync(Guid itemId, Guid? beforeItemId) =>
+		api.PutJsonAsync<FileSystemItemDto>($"{ItemsUrl}/{itemId}/position", new ItemPositionPutDto { BeforeItemId = beforeItemId });
+
 	public Task DeleteAsync(Guid itemId) => api.DeleteAsync($"{ItemsUrl}/{itemId}");
 
 	public Task<byte[]> GetFileAsync(Guid itemId) => api.GetBytesAsync($"{ItemsUrl}/{itemId}/file");

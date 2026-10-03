@@ -3,7 +3,8 @@
 **Status:** revised on 2026-10-02 for one general item endpoint (Alina's request). Decisions are in
 section 11; questions from stage 3 wait in section 12. Stages 0–1 are done. The app is mobile only for now
 (decisions 33–37): Android, checked on the emulator. Stages 1a, 2 and 3 are done too. Next: stage 4. On 2026-10-03
-editing was limited to the name, description and cover image (decision 46).
+editing was limited to the name, description and cover image (decision 46), and stage 3a added drag and drop with a
+custom order (decisions 48–54).
 **Updated:** 2026-10-03
 
 UI strings are quoted exactly as they appear in the app (Ukrainian).
@@ -29,9 +30,12 @@ Links are expected to be the most common item, so they come first in the app.
 
 - create, open, edit, move, delete;
 - a path at the top (`Головна › Рецепти › Супи`), every segment clickable;
-- sorting: folders first, then files; by name, modified date or type.
+- drag and drop (decisions 48–54, 2026-10-03): drag an item onto a folder or a path segment to move it there,
+  or between items to change the order;
+- a custom order of items in every folder (decision 50); sorting by name, modified date or type as an alternative
+  view (decision 52).
 
-**Out of scope (next steps):** custom fields, tags, search, OCR, design beyond the bottom bar, trash, copying, drag and drop,
+**Out of scope (next steps):** custom fields, tags, search, OCR, design beyond the bottom bar, trash, copying,
 multi-select, offline mode, sharing between users, Office formats (docx, xlsx). Cover images made from files (server-side
 thumbnails) were out of scope here too; they now come with [`auto-fill-plan.md`](auto-fill-plan.md).
 
@@ -83,6 +87,7 @@ CREATE TABLE file_system_items
     file_path             varchar(300)  NULL,
     file_mime_type        varchar(100)  NULL,
     file_size_bytes       bigint        NULL,
+    position_in_folder    integer       NOT NULL,
     CONSTRAINT pk_file_system_items               PRIMARY KEY (item_id),
     CONSTRAINT fk_file_system_items_owner         FOREIGN KEY (owner_email)      REFERENCES users (email)                ON DELETE CASCADE,
     CONSTRAINT fk_file_system_items_parent_folder FOREIGN KEY (parent_folder_id) REFERENCES file_system_items (item_id) ON DELETE CASCADE,
@@ -112,6 +117,9 @@ What matters here:
 - **`description` and `cover_image_*` are common to every type.** The earlier `link_description` is
   replaced by `description`.
 - **Only a folder can be a parent.** The service checks this.
+- **`position_in_folder`** holds the custom order (decision 50): the smaller the number, the higher the item in
+  its folder. Numbers are compared only between items of one folder of one email. A new or moved-in item gets a
+  number smaller than all others, so it goes to the top (decision 51). Ties are ordered by name.
 
 **Naming rules:**
 
@@ -128,6 +136,8 @@ What matters here:
   this revision).
 - This revision adds one more: `AddDescriptionAndCoverImage` (adds `description` and the
   `cover_image_*` columns, drops `link_description`).
+- 2026-10-03: `AddPositionInFolder` adds `position_in_folder`. Existing items get numbers in their current order
+  (folders first, then by name), so nothing jumps around after the update.
 
 ## 4. Where things live
 
@@ -174,6 +184,7 @@ public abstract class FileSystemItem
     public string? CoverImageMimeType { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
+    public int PositionInFolder { get; set; }
 }
 
 public class Folder : FileSystemItem { public List<FileSystemItem> Items { get; set; } = []; }
@@ -199,6 +210,7 @@ public class Document : UploadedFile { }
 | `FileSystemItemDetailsDto` | The above, plus `Description`, `CreatedAt`, `NoteText?`, `FileMimeType?` | An opened item |
 | `FolderPathItemDto` | `ItemId`, `Name` | One segment of the path at the top |
 | `ItemParentFolderPutDto` | `TargetFolderId` (`null` = root) | Move |
+| `ItemPositionPutDto` | `BeforeItemId` (`null` = the end of the folder) | Change the order inside a folder (decision 50) |
 
 **Forms** (`multipart/form-data`, because they can carry files):
 
@@ -221,12 +233,13 @@ against `users` and returns 401 if it is missing or unknown. Errors come back as
 
 | Request | What it does | Responses |
 |---|---|---|
-| `GET /api/file-system-items?parentFolderId=` | Folder contents (no parameter = root): folders first, then files | 200 / 404 |
+| `GET /api/file-system-items?parentFolderId=` | Folder contents (no parameter = root) in the custom order (decision 50) | 200 / 404 |
 | `GET /api/file-system-items/{itemId}` | One item with everything about it | 200 / 404 |
 | `GET /api/file-system-items/{itemId}/path` | Path from the root to the item | 200 / 404 |
 | `POST /api/file-system-items` | **Create any item** (the form from section 5) | 200 / 400 / 404 / 409 |
 | `PUT /api/file-system-items/{itemId}` | **Edit any item**: name, description, cover image (not the content, decision 46) | 200 / 400 / 404 / 409 |
-| `PUT /api/file-system-items/{itemId}/parent-folder` | Move | 200 / 404 / 409 |
+| `PUT /api/file-system-items/{itemId}/parent-folder` | Move; the item goes to the top of the target folder (decision 51) | 200 / 404 / 409 |
+| `PUT /api/file-system-items/{itemId}/position` | Put the item right before `BeforeItemId` in the same folder, or at the end | 200 / 404 |
 | `DELETE /api/file-system-items/{itemId}` | Delete, together with everything inside | 204 / 404 |
 | `GET /api/file-system-items/{itemId}/file` | The uploaded file of a photo or document | 200 / 404 |
 | `GET /api/file-system-items/{itemId}/cover-image` | The cover image | 200 / 404 |
@@ -250,9 +263,10 @@ against `users` and returns 401 if it is missing or unknown. Errors come back as
 |---|---|---|
 | Folder contents | The folder exists and belongs to the current email | 404 |
 | Item details | The item belongs to the current email | 404 |
-| Create | The rules; the parent is a folder of the current email; the name is free | 400 / 404 / 409 |
+| Create | The rules; the parent is a folder of the current email; the name is free. The new item goes to the top (decision 51) | 400 / 404 / 409 |
 | Edit | The rules; the name is free in the same folder | 400 / 404 / 409 |
-| Move | The target is a folder of the current email, or the root; not the item itself or a folder inside it; the name is free in the target | 404 / 409 |
+| Move | The target is a folder of the current email, or the root; not the item itself or a folder inside it; the name is free in the target. The item goes to the top of the target (decision 51) | 404 / 409 |
+| Change the order | The item and `BeforeItemId` belong to the current email and are in the same folder. The folder's items are renumbered in the new order | 404 |
 | Delete | The item belongs to the current email; the database deletes everything inside it; the service removes that branch's files and cover images from disk | 404 |
 | Path | Walks the tree from the item up to the root | 404 |
 
@@ -294,10 +308,28 @@ reference: [`docs/images/bottom-bar-reference.png`](images/bottom-bar-reference.
   - photo, note, text document (txt, md, csv, json) → `ViewerPage` in the app;
   - PDF → the device's viewer. If the device has no PDF viewer, a message says so.
 - **Holding an item opens a menu:** `Редагувати`, `Перемістити`, `Видалити`. There is no `⋯` button.
+  Since 2026-10-03 (decision 48) the menu opens when the finger is released without dragging; see below.
+
+**Drag and drop (decisions 48–54, 2026-10-03).**
+
+- **Holding lifts the row.** Dragging it somewhere and releasing there moves it (below). Releasing without
+  dragging opens the menu from decision 38. On Windows the menu opens with a right click.
+- **Where an item can be dropped:**
+  - **onto a folder row** (its middle part): the item moves into that folder;
+  - **between rows** (the top or bottom part of a row): the item takes that place in the custom order;
+  - **onto a path segment** (`Головна › Рецепти › …`) other than the current folder: the item moves into that
+    folder, for example to the root on `Головна`.
+- **While dragging:** a folder that would take the item is highlighted, and a line shows where the item would land
+  between rows.
+- **After a drop** the list changes at once. If the server refuses (for example, the name is taken in the target
+  folder), the list is reloaded and the error is shown as red text.
+- **Moved items go to the top of the target folder,** like new items (decision 51).
+- **Limits:** the list doesn't scroll by itself while dragging, so items can only be dropped on rows that are on
+  the screen. For far-away targets there is `Перемістити` (stage 4).
 
 | Page | What it does |
 |---|---|
-| `FolderPage` (replaces the `HomePage` placeholder) | Path at the top; the list, each row with its cover image or, without one, the type icon; sorting (stage 4); tap / hold as above. An empty folder shows `Тут поки порожньо`. No create buttons here: creating is in the bottom bar |
+| `FolderPage` (replaces the `HomePage` placeholder) | Path at the top; the list in the custom order, each row with its cover image or, without one, the type icon; sorting views (stage 4); tap / hold / drag as above. An empty folder shows `Тут поки порожньо`. No create buttons here: creating is in the bottom bar |
 | `ItemPage` | Only the form to create and edit an item. When creating, a content field by type: URL for a link, text for a note, the picked file with `Замінити файл` for a photo or document, none for a folder. When editing, no content field (decision 46). Plus name, description and a cover image picked from the gallery (it can also be removed). `Зберегти` returns to the folder |
 | `ViewerPage` | Opens a photo full screen, or a text (a note or a text document), with the name at the top |
 | `MovePage` | Browse folders only, then `Перемістити сюди`. The item itself and the folders inside it can't be picked |
@@ -332,7 +364,8 @@ Each stage ends with a working version, checked through Swagger and by clicking 
 | 1a | **Android setup** | JDK 17, the `maui-android` workload, the Android SDK, the emulator with a phone image; the app gets an Android target next to Windows; a debug-only setting lets it call the local API over plain HTTP (`10.0.2.2:5094` from the emulator) |
 | 2 | **App: bottom bar and folders** | `BottomBar` with `+` and the creation menu, `ApiClient`, `FileSystemApi`, `FolderPage`, `ProfilePage`. Also decision 30 on the server |
 | 3 | **App: items** | Tap to open / hold for the menu, `ItemPage` (create and edit), `ViewerPage`, opening links and PDFs |
-| 4 | **App: move and sorting** | `MovePage`, list sorting |
+| 3a | **Drag and drop, custom order** (2026-10-03) | `position_in_folder` and `AddPositionInFolder`, the order request, new and moved items at the top; in the app: hold to drag, drop onto folders, path segments and between rows; the menu on release |
+| 4 | **App: move and sorting** | `MovePage`; sorting by name, modified date or type as views next to the custom order (decision 52) |
 
 **Progress (2026-10-02):** stages 0 and 1 are done. The server was checked over HTTP:
 
@@ -377,6 +410,19 @@ Stage 3 is done as well (2026-10-02), checked on the emulator, the new pages in 
 
 Until stage 4 arrives, `Перемістити` shows «Ще не готово».
 
+Stage 3a (drag and drop, custom order) was added and done on 2026-10-03:
+
+- `AddPositionInFolder` numbered the existing items in their old order;
+- the server puts new and moved items at the top and changes the order without touching `updated_at`;
+- checked on the emulator:
+  - a tap still opens an item;
+  - hold and release opens the menu;
+  - dragging onto a folder moves the item to its top;
+  - dragging between rows changes the order;
+  - dragging onto `Головна` in the path moves the item there;
+  - the folder highlight and the insertion line show while dragging;
+  - a name clash in the target shows «У цій папці вже є «…».» in red, and the item comes back.
+
 Stage 4 is next.
 
 ## 10. Delivery process
@@ -402,10 +448,11 @@ Stage 4 is next.
      - folder contents, path and item details;
      - isolation between emails;
      - cover images from [`auto-fill-plan.md`](auto-fill-plan.md);
+     - the custom order (decisions 50 and 51);
      - `LinkPageParser`.
    - **Run:** `.\run-tests.cmd`. It starts the database container like `run-api.cmd`, then runs the tests.
    - **Status (2026-10-03):** 100 tests, all passing. Breaking two rules on purpose (EXIF turn, content
-     on edit) made exactly their tests fail.
+     on edit) made exactly their tests fail. With stage 3a: 111 tests (`FileSystem/OrderTests.cs`), all passing.
 
 ## 11. Decisions
 
@@ -465,6 +512,18 @@ Stage 4 is next.
 |---|---|---|
 | 46 | What editing can change | Only the name, description and cover image, for every type. The content (a photo's or document's file, a link's address, a note's text) is set on create and can't change. The edit form has no content field, and the edit request has no content fields |
 | 47 | Database for automated tests | A throwaway database in the running `pawstash-db` container, created and dropped by each run. No Testcontainers library |
+| 48 | Drag and drop with the hold menu (decision 38) | Holding lifts the row; dragging and releasing elsewhere moves it; releasing without dragging opens the menu. On Windows, a right click opens the menu |
+| 49 | Where items can be dropped | Onto folders in the list and onto path segments at the top |
+| 50 | Custom order | Yes: items can be put in any order inside a folder by dragging them between rows. The order is free: folders aren't pinned to the top. Stored in `position_in_folder` |
+| 51 | Where an item that arrives in a folder goes (new or moved in) | To the top |
+| 52 | Sorting from stage 4 | The custom order is the default view. Sorting by name, modified date or type comes as alternative views. Rows can be reordered only in the custom-order view; moving into folders works in every view |
+| 53 | Library | MAUI's own `DragGestureRecognizer` and `DropGestureRecognizer`; no new library. They replace the app's own tap / hold behaviour on rows |
+
+**Proposed with decisions 48–53 (2026-10-03):**
+
+| # | Question | Proposal |
+|---|---|---|
+| 54 | How a drop on a row is read | Folder rows: the middle half means "into the folder", the top and bottom quarters mean "before" and "after". Other rows: the top half means "before", the bottom half "after" |
 
 ## 12. Open questions
 

@@ -18,6 +18,8 @@ namespace PawStash.BLL.Interfaces
 
         Task<ServiceResult<FileSystemItemDto>> Move(Guid itemId, ItemParentFolderPutDto itemParentFolderPutDto);
 
+        Task<ServiceResult<FileSystemItemDto>> ChangePosition(Guid itemId, ItemPositionPutDto itemPositionPutDto);
+
         Task<ServiceResult> Delete(Guid itemId);
 
         Task<ServiceResult<FileContent>> GetFile(Guid itemId);

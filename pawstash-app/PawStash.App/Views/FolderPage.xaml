@@ -3,7 +3,6 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:PawStash.ViewModels"
              xmlns:controls="clr-namespace:PawStash.Controls"
-             xmlns:behaviors="clr-namespace:PawStash.Behaviors"
              x:Class="PawStash.Views.FolderPage"
              x:DataType="vm:FolderViewModel"
              Shell.NavBarIsVisible="False">
@@ -17,9 +16,10 @@
                         <DataTemplate x:DataType="vm:FolderPathSegment">
                             <HorizontalStackLayout Spacing="6">
                                 <Label Text="›" FontSize="20" IsVisible="{Binding ShowSeparator}" TextColor="#8E8E93" VerticalOptions="Center" />
-                                <Label Text="{Binding Name}" FontSize="20" FontAttributes="{Binding Weight}" VerticalOptions="Center">
+                                <Label Text="{Binding Name}" FontSize="20" FontAttributes="{Binding Weight}" VerticalOptions="Center" Padding="4,0">
                                     <Label.GestureRecognizers>
                                         <TapGestureRecognizer Tapped="OnPathSegmentTapped" />
+                                        <DropGestureRecognizer DragOver="OnPathSegmentDragOver" DragLeave="OnPathSegmentDragLeave" Drop="OnPathSegmentDrop" />
                                     </Label.GestureRecognizers>
                                 </Label>
                             </HorizontalStackLayout>
@@ -36,18 +36,28 @@
                 </CollectionView.EmptyView>
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="vm:FolderItemViewModel">
-                        <Grid ColumnDefinitions="44,*" ColumnSpacing="12" Padding="0,8" BackgroundColor="Transparent">
-                            <Grid.Behaviors>
-                                <behaviors:TapAndLongPressBehavior Tapped="OnItemTapped" LongPressed="OnItemLongPressed" />
-                            </Grid.Behaviors>
-                            <Image Source="{Binding TypeIcon}" WidthRequest="26" HeightRequest="26" IsVisible="{Binding HasNoCover}" />
-                            <Border WidthRequest="44" HeightRequest="44" StrokeThickness="0" StrokeShape="RoundRectangle 8" IsVisible="{Binding HasCover}">
-                                <Image Source="{Binding CoverImage}" Aspect="AspectFill" WidthRequest="44" HeightRequest="44" />
-                            </Border>
-                            <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="2">
-                                <Label Text="{Binding Name}" FontSize="16" LineBreakMode="TailTruncation" />
-                                <Label Text="{Binding Subtitle}" FontSize="13" TextColor="#8E8E93" LineBreakMode="TailTruncation" />
-                            </VerticalStackLayout>
+                        <Grid BackgroundColor="Transparent">
+                            <Grid.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="OnItemTapped" />
+                                <TapGestureRecognizer Buttons="Secondary" Tapped="OnItemSecondaryTapped" />
+                                <DragGestureRecognizer DragStarting="OnItemDragStarting" DropCompleted="OnItemDropCompleted" />
+                                <DropGestureRecognizer DragOver="OnItemDragOver" DragLeave="OnItemDragLeave" Drop="OnItemDrop" />
+                            </Grid.GestureRecognizers>
+                            <BoxView CornerRadius="8"
+                                     BackgroundColor="{AppThemeBinding Light=#EDE7FF, Dark=#3A2F66}"
+                                     IsVisible="{Binding IsDropInto}" />
+                            <BoxView HeightRequest="3" VerticalOptions="Start" BackgroundColor="#7C5CFA" IsVisible="{Binding IsDropBefore}" />
+                            <BoxView HeightRequest="3" VerticalOptions="End" BackgroundColor="#7C5CFA" IsVisible="{Binding IsDropAfter}" />
+                            <Grid ColumnDefinitions="44,*" ColumnSpacing="12" Padding="0,8">
+                                <Image Source="{Binding TypeIcon}" WidthRequest="26" HeightRequest="26" IsVisible="{Binding HasNoCover}" />
+                                <Border WidthRequest="44" HeightRequest="44" StrokeThickness="0" StrokeShape="RoundRectangle 8" IsVisible="{Binding HasCover}">
+                                    <Image Source="{Binding CoverImage}" Aspect="AspectFill" WidthRequest="44" HeightRequest="44" />
+                                </Border>
+                                <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="2">
+                                    <Label Text="{Binding Name}" FontSize="16" LineBreakMode="TailTruncation" />
+                                    <Label Text="{Binding Subtitle}" FontSize="13" TextColor="#8E8E93" LineBreakMode="TailTruncation" />
+                                </VerticalStackLayout>
+                            </Grid>
                         </Grid>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
