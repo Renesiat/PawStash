@@ -1,4 +1,5 @@
 using PawStash.Common.Enums;
+using PawStash.Common.Rules;
 using PawStash.Services;
 
 namespace PawStash.Controls;
@@ -23,8 +24,6 @@ public partial class BottomBar : ContentView
 		BarCanvas.Drawable = new BottomBarDrawable();
 		UpdateTabs();
 	}
-
-	public event EventHandler? ItemsCreated;
 
 	public BottomBarTab ActiveTab
 	{
@@ -127,7 +126,7 @@ public partial class BottomBar : ContentView
 
 	async void OnCreateFolderTapped(object? sender, TappedEventArgs e) => await OpenCreateFormAsync(FileSystemItemType.Folder);
 
-	async Task OpenCreateFormAsync(FileSystemItemType itemType)
+	async Task OpenCreateFormAsync(FileSystemItemType itemType, PickedFile? file = null)
 	{
 		CloseMenu();
 
@@ -138,6 +137,11 @@ public partial class BottomBar : ContentView
 			query["parentFolderId"] = folderId;
 		}
 
+		if (file is not null)
+		{
+			query["file"] = file;
+		}
+
 		await Shell.Current.GoToAsync("item", query);
 	}
 
@@ -146,13 +150,21 @@ public partial class BottomBar : ContentView
 		CloseMenu();
 
 		ItemCreationService itemCreation = IPlatformApplication.Current!.Services.GetRequiredService<ItemCreationService>();
-		IReadOnlyList<string> errors = await itemCreation.UploadFilesAsync(CurrentFolderId);
+		PickedFile? file = await itemCreation.PickFileAsync();
 
-		if (errors.Count > 0)
+		if (file is null)
 		{
-			await Shell.Current.DisplayAlertAsync("Не всі файли додано", string.Join("\n", errors), "OK");
+			return;
 		}
 
-		ItemsCreated?.Invoke(this, EventArgs.Empty);
+		string? error = ItemCreationService.Validate(file);
+
+		if (error is not null)
+		{
+			await Shell.Current.DisplayAlertAsync("Файл не додано", error, "OK");
+			return;
+		}
+
+		await OpenCreateFormAsync(FileSystemItemRules.GetUploadedFileType(file.FileName)!.Value, file);
 	}
 }

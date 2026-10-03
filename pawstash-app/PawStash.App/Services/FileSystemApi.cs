@@ -30,17 +30,8 @@ public class FileSystemApi(ApiClient api)
 		return api.SendFormAsync<FileSystemItemDetailsDto>(HttpMethod.Post, ItemsUrl, form);
 	}
 
-	public Task<FileSystemItemDetailsDto> UpdateItemAsync(Guid itemId, ItemFormData data)
-	{
-		MultipartFormDataContent form = BuildForm(data);
-
-		if (data.RemoveCoverImage)
-		{
-			form.Add(new StringContent("true"), "removeCoverImage");
-		}
-
-		return api.SendFormAsync<FileSystemItemDetailsDto>(HttpMethod.Put, $"{ItemsUrl}/{itemId}", form);
-	}
+	public Task<FileSystemItemDetailsDto> UpdateItemAsync(Guid itemId, ItemFormData data) =>
+		api.SendFormAsync<FileSystemItemDetailsDto>(HttpMethod.Put, $"{ItemsUrl}/{itemId}", BuildForm(data));
 
 	public Task DeleteAsync(Guid itemId) => api.DeleteAsync($"{ItemsUrl}/{itemId}");
 
@@ -65,6 +56,11 @@ public class FileSystemApi(ApiClient api)
 		if (data.CoverImage is PickedFile coverImage)
 		{
 			form.Add(new ByteArrayContent(coverImage.Content), "coverImage", coverImage.FileName);
+		}
+
+		if (data.RemoveCoverImage)
+		{
+			form.Add(new StringContent("true"), "removeCoverImage");
 		}
 
 		return form;

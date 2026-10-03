@@ -17,5 +17,7 @@ namespace PawStash.API.Models
         public IFormFile? File { get; set; }
 
         public IFormFile? CoverImage { get; set; }
+
+        public bool RemoveCoverImage { get; set; }
     }
 }

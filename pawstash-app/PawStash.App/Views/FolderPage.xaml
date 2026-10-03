@@ -57,6 +57,6 @@
             </CollectionView>
         </Grid>
 
-        <controls:BottomBar ActiveTab="Home" CurrentFolderId="{Binding FolderId}" ItemsCreated="OnItemsCreated" />
+        <controls:BottomBar ActiveTab="Home" CurrentFolderId="{Binding FolderId}" />
     </Grid>
 </ContentPage>

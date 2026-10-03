@@ -2,8 +2,9 @@
 
 **Status:** revised on 2026-10-02 for one general item endpoint (Alina's request). Decisions are in
 section 11; questions from stage 3 wait in section 12. Stages 0–1 are done. The app is mobile only for now
-(decisions 33–37): Android, checked on the emulator. Stages 1a, 2 and 3 are done too. Next: stage 4.
-**Updated:** 2026-10-02
+(decisions 33–37): Android, checked on the emulator. Stages 1a, 2 and 3 are done too. Next: stage 4. On 2026-10-03
+editing was limited to the name, description and cover image (decision 46).
+**Updated:** 2026-10-03
 
 UI strings are quoted exactly as they appear in the app (Ukrainian).
 
@@ -14,7 +15,7 @@ A file manager like Windows Explorer: folders nested to any depth. **Every item 
 | Part | Required | Notes |
 |---|---|---|
 | Type | yes | `folder`, `link`, `note`, `photo`, `document` |
-| Content | yes, except for folders | link: a URL; note: text; photo: an image file; document: a PDF or text file |
+| Content | yes, except for folders | link: a URL; note: text; photo: an image file; document: a PDF or text file. Set on create and can't change later (decision 46) |
 | Name | no | a default is used when empty (section 7) |
 | Description | no | |
 | Cover image | no | a custom picture shown instead of the type icon |
@@ -31,7 +32,8 @@ Links are expected to be the most common item, so they come first in the app.
 - sorting: folders first, then files; by name, modified date or type.
 
 **Out of scope (next steps):** custom fields, tags, search, OCR, design beyond the bottom bar, trash, copying, drag and drop,
-multi-select, offline mode, sharing between users, server-side thumbnails, Office formats (docx, xlsx).
+multi-select, offline mode, sharing between users, Office formats (docx, xlsx). Cover images made from files (server-side
+thumbnails) were out of scope here too; they now come with [`auto-fill-plan.md`](auto-fill-plan.md).
 
 ## 2. How the file system maps onto the database
 
@@ -206,11 +208,11 @@ public class Document : UploadedFile { }
 | `parentFolderId` | optional (empty = root) | — (use move) |
 | `name` | optional | optional (empty = default from section 7) |
 | `description` | optional | optional (empty = no description) |
-| `linkUrl` | required for a link | required for a link |
-| `noteText` | required for a note | required for a note |
-| `file` | required for a photo or document | optional (empty = keep the current file) |
+| `linkUrl` | required for a link | — (content can't change, decision 46) |
+| `noteText` | required for a note | — (content can't change, decision 46) |
+| `file` | required for a photo or document | — (content can't change, decision 46) |
 | `coverImage` | optional | optional (a new one replaces the old one) |
-| `removeCoverImage` | — | optional, `true` removes the cover image |
+| `removeCoverImage` | optional, `true` = no cover image, so none is made from the file ([`auto-fill-plan.md`](auto-fill-plan.md), decision 10) | optional, `true` removes the cover image |
 
 ## 6. API
 
@@ -223,7 +225,7 @@ against `users` and returns 401 if it is missing or unknown. Errors come back as
 | `GET /api/file-system-items/{itemId}` | One item with everything about it | 200 / 404 |
 | `GET /api/file-system-items/{itemId}/path` | Path from the root to the item | 200 / 404 |
 | `POST /api/file-system-items` | **Create any item** (the form from section 5) | 200 / 400 / 404 / 409 |
-| `PUT /api/file-system-items/{itemId}` | **Edit any item**: name, description, content, cover image | 200 / 400 / 404 / 409 |
+| `PUT /api/file-system-items/{itemId}` | **Edit any item**: name, description, cover image (not the content, decision 46) | 200 / 400 / 404 / 409 |
 | `PUT /api/file-system-items/{itemId}/parent-folder` | Move | 200 / 404 / 409 |
 | `DELETE /api/file-system-items/{itemId}` | Delete, together with everything inside | 204 / 404 |
 | `GET /api/file-system-items/{itemId}/file` | The uploaded file of a photo or document | 200 / 404 |
@@ -236,8 +238,8 @@ against `users` and returns 401 if it is missing or unknown. Errors come back as
 | What | Rule |
 |---|---|
 | Type | Required on create; can't change later |
-| Content | Required for every type except folders, and must match the type, otherwise 400. Folder: none. Link: `http://` or `https://` URL, up to 2048 characters. Note: text that isn't empty, up to 100,000 characters. Photo: jpg, png, webp or gif. Document: pdf, txt, md, csv or json (text read as UTF-8). Files up to 25 MB |
-| Name | Optional, up to 255 characters, surrounding spaces trimmed. When empty: folder → `Нова папка`; link → the site's address (for example `example.com`); note → its first line that isn't empty, cut to 255 characters; photo / document → the original file name. When a photo or document is edited without a new file, the current name stays |
+| Content | Required for every type except folders, and must match the type, otherwise 400. Folder: none. Link: `http://` or `https://` URL, up to 2048 characters. Note: text that isn't empty, up to 100,000 characters. Photo: jpg, png, webp or gif. Document: pdf, txt, md, csv or json (text read as UTF-8). Files up to 25 MB. Set on create; editing can't change it (decision 46) |
+| Name | Optional, up to 255 characters, surrounding spaces trimmed. When empty: folder → `Нова папка`; link → the site's address (for example `example.com`); note → its first line that isn't empty, cut to 255 characters; photo / document → the original file name. When a photo or document is edited with an empty name, the current name stays |
 | Description | Optional, up to 2000 characters |
 | Cover image | Optional; jpg, png, webp or gif, up to 5 MB. A new cover image together with `removeCoverImage = true` → 400 «Або нова картинка, або видалення» |
 | Name already taken in the folder | 409 |
@@ -279,8 +281,9 @@ reference: [`docs/images/bottom-bar-reference.png`](images/bottom-bar-reference.
 **Creating an item.** `+` opens a small menu above the bar with `Посилання` (first, the main action),
 `Нотатка`, `Папка`, `Файл`. The new item goes into the folder that is open at that moment.
 
-- `Файл` opens the system file picker. Several files can be picked; each one is sent as its own create
-  request. Its type (photo or document) is taken from the file extension and sent explicitly.
+- `Файл` opens the system file picker for one file. Its type (photo or document) is taken from the file
+  extension; then `ItemPage` opens with the fields already filled ([`auto-fill-plan.md`](auto-fill-plan.md),
+  decision 3). Until 2026-10-02 several files could be picked and each was sent as its own create request.
 - The other options open `ItemPage` in create mode.
 
 **Using an item (decision 38).**
@@ -295,7 +298,7 @@ reference: [`docs/images/bottom-bar-reference.png`](images/bottom-bar-reference.
 | Page | What it does |
 |---|---|
 | `FolderPage` (replaces the `HomePage` placeholder) | Path at the top; the list, each row with its cover image or, without one, the type icon; sorting (stage 4); tap / hold as above. An empty folder shows `Тут поки порожньо`. No create buttons here: creating is in the bottom bar |
-| `ItemPage` | Only the form to create and edit an item. Content field by type: URL for a link, text for a note, `Замінити файл` for a photo or document, none for a folder. Plus name, description and a cover image picked from the gallery (it can also be removed). `Зберегти` returns to the folder |
+| `ItemPage` | Only the form to create and edit an item. When creating, a content field by type: URL for a link, text for a note, the picked file with `Замінити файл` for a photo or document, none for a folder. When editing, no content field (decision 46). Plus name, description and a cover image picked from the gallery (it can also be removed). `Зберегти` returns to the folder |
 | `ViewerPage` | Opens a photo full screen, or a text (a note or a text document), with the name at the top |
 | `MovePage` | Browse folders only, then `Перемістити сюди`. The item itself and the folders inside it can't be picked |
 | `ProfilePage` | The signed-in email and `Вийти` |
@@ -404,7 +407,7 @@ Stage 4 is next.
 | 10 | Type | Always given explicitly; the server checks the content matches it |
 | 11 | Folders | Created through the same endpoint, without content |
 | 12 | Rename | Through the general `PUT`; no separate `PUT …/name` |
-| 13 | Several files at once | One create request per file |
+| 13 | Several files at once | One create request per file. **Replaced on 2026-10-02** by decision 3 of [`auto-fill-plan.md`](auto-fill-plan.md): one file at a time, through `ItemPage` |
 | 14 | Description | Up to 2000 characters |
 | 15 | Empty note | Not allowed: the content is required |
 | 16 | Services | One `FileSystemService` |
@@ -437,6 +440,12 @@ Stage 4 is next.
 | 43 | Title bar hidden on the folder and profile pages | Kept for now |
 | 44 | Status bar icons follow the theme | Kept |
 | 45 | App helper files in section 4 | Not listed |
+
+**Confirmed 2026-10-03:**
+
+| # | Question | Decision |
+|---|---|---|
+| 46 | What editing can change | Only the name, description and cover image, for every type. The content (a photo's or document's file, a link's address, a note's text) is set on create and can't change. The edit form has no content field, and the edit request has no content fields |
 
 ## 12. Open questions
 

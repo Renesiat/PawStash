@@ -20,17 +20,20 @@ namespace PawStash.BLL.Implementations
         private readonly IPawStashContext _context;
         private readonly ICurrentUser _currentUser;
         private readonly IFileStorage _fileStorage;
+        private readonly ICoverImageMaker _coverImageMaker;
         private readonly IValidator<FileSystemItemInput> _fileSystemItemInputValidator;
 
         public FileSystemService(
             IPawStashContext context,
             ICurrentUser currentUser,
             IFileStorage fileStorage,
+            ICoverImageMaker coverImageMaker,
             IValidator<FileSystemItemInput> fileSystemItemInputValidator)
         {
             _context = context;
             _currentUser = currentUser;
             _fileStorage = fileStorage;
+            _coverImageMaker = coverImageMaker;
             _fileSystemItemInputValidator = fileSystemItemInputValidator;
         }
 
@@ -118,7 +121,7 @@ namespace PawStash.BLL.Implementations
                 return ServiceResult<FileSystemItemDetailsDto>.From(folderCheck);
             }
 
-            string name = ResolveName(fileSystemItemInput, itemType, null);
+            string name = ResolveName(fileSystemItemInput, itemType);
             ServiceResult nameCheck = await CheckName(fileSystemItemInput.ParentFolderId, name, null);
 
             if (!nameCheck.IsSuccess)
@@ -139,11 +142,7 @@ namespace PawStash.BLL.Implementations
             try
             {
                 await ApplyContent(item, fileSystemItemInput, savedFilePaths);
-
-                if (fileSystemItemInput.CoverImage is not null)
-                {
-                    await SaveCoverImage(item, fileSystemItemInput.CoverImage, savedFilePaths);
-                }
+                await ApplyCoverImage(item, itemType, fileSystemItemInput, savedFilePaths);
 
                 _context.FileSystemItems.Add(item);
 
@@ -185,7 +184,7 @@ namespace PawStash.BLL.Implementations
                 return ServiceResult<FileSystemItemDetailsDto>.Invalid(validationResult.ToDictionary());
             }
 
-            string name = ResolveName(fileSystemItemInput, itemType, item.Name);
+            string name = ResolveEditedName(fileSystemItemInput.Name, item);
             ServiceResult nameCheck = await CheckName(item.ParentFolderId, name, item.ItemId);
 
             if (!nameCheck.IsSuccess)
@@ -193,7 +192,6 @@ namespace PawStash.BLL.Implementations
                 return ServiceResult<FileSystemItemDetailsDto>.From(nameCheck);
             }
 
-            string? oldFilePath = (item as UploadedFile)?.FilePath;
             string? oldCoverImagePath = item.CoverImagePath;
             List<string> savedFilePaths = [];
 
@@ -202,17 +200,7 @@ namespace PawStash.BLL.Implementations
                 item.Name = name;
                 item.Description = FileSystemItemRules.NormalizeDescription(fileSystemItemInput.Description);
 
-                await ApplyContent(item, fileSystemItemInput, savedFilePaths);
-
-                if (fileSystemItemInput.CoverImage is not null)
-                {
-                    await SaveCoverImage(item, fileSystemItemInput.CoverImage, savedFilePaths);
-                }
-                else if (fileSystemItemInput.RemoveCoverImage)
-                {
-                    item.CoverImagePath = null;
-                    item.CoverImageMimeType = null;
-                }
+                await ApplyCoverImage(item, itemType, fileSystemItemInput, savedFilePaths);
 
                 ServiceResult saveResult = await SaveChanges(name);
 
@@ -227,11 +215,6 @@ namespace PawStash.BLL.Implementations
             {
                 DeleteFiles(savedFilePaths);
                 throw;
-            }
-
-            if (oldFilePath is not null && item is UploadedFile uploadedFile && uploadedFile.FilePath != oldFilePath)
-            {
-                _fileStorage.Delete(oldFilePath);
             }
 
             if (oldCoverImagePath is not null && item.CoverImagePath != oldCoverImagePath)
@@ -367,7 +350,7 @@ namespace PawStash.BLL.Implementations
             };
         }
 
-        private static string ResolveName(FileSystemItemInput fileSystemItemInput, FileSystemItemType itemType, string? currentName)
+        private static string ResolveName(FileSystemItemInput fileSystemItemInput, FileSystemItemType itemType)
         {
             if (!string.IsNullOrWhiteSpace(fileSystemItemInput.Name))
             {
@@ -379,17 +362,31 @@ namespace PawStash.BLL.Implementations
                 FileSystemItemType.Folder => FileSystemItemRules.DefaultFolderName,
                 FileSystemItemType.Link => FileSystemItemRules.GetLinkDefaultName(fileSystemItemInput.LinkUrl!),
                 FileSystemItemType.Note => FileSystemItemRules.GetNoteDefaultName(fileSystemItemInput.NoteText!),
-                _ => fileSystemItemInput.File is not null
-                    ? FileSystemItemRules.GetFileDefaultName(fileSystemItemInput.File.FileName)
-                    : currentName!
+                _ => FileSystemItemRules.GetFileDefaultName(fileSystemItemInput.File!.FileName)
             };
         }
 
-        private async Task<ValidationResult> Validate(FileSystemItemInput fileSystemItemInput, string ruleSet)
+        private static string ResolveEditedName(string? name, FileSystemItem item)
+        {
+            if (!string.IsNullOrWhiteSpace(name))
+            {
+                return FileSystemItemRules.NormalizeName(name);
+            }
+
+            return item switch
+            {
+                Folder => FileSystemItemRules.DefaultFolderName,
+                Link link => FileSystemItemRules.GetLinkDefaultName(link.Url),
+                Note note => FileSystemItemRules.GetNoteDefaultName(note.Text),
+                _ => item.Name
+            };
+        }
+
+        private async Task<ValidationResult> Validate(FileSystemItemInput fileSystemItemInput, params string[] ruleSets)
         {
             return await _fileSystemItemInputValidator.ValidateAsync(
                 fileSystemItemInput,
-                options => options.IncludeRuleSets(ruleSet).IncludeRulesNotInRuleSet());
+                options => options.IncludeRuleSets(ruleSets).IncludeRulesNotInRuleSet());
         }
 
         private async Task ApplyContent(FileSystemItem item, FileSystemItemInput fileSystemItemInput, List<string> savedFilePaths)
@@ -409,6 +406,30 @@ namespace PawStash.BLL.Implementations
                     uploadedFile.MimeType = FileSystemItemRules.GetMimeType(fileSystemItemInput.File.FileName)!;
                     uploadedFile.SizeBytes = fileSystemItemInput.File.SizeBytes;
                     break;
+            }
+        }
+
+        private async Task ApplyCoverImage(
+            FileSystemItem item,
+            FileSystemItemType itemType,
+            FileSystemItemInput fileSystemItemInput,
+            List<string> savedFilePaths)
+        {
+            if (fileSystemItemInput.CoverImage is not null)
+            {
+                FileUpload coverImage = await _coverImageMaker.Reduce(fileSystemItemInput.CoverImage) ?? fileSystemItemInput.CoverImage;
+
+                await SaveCoverImage(item, coverImage, savedFilePaths);
+            }
+            else if (fileSystemItemInput.RemoveCoverImage)
+            {
+                item.CoverImagePath = null;
+                item.CoverImageMimeType = null;
+            }
+            else if (fileSystemItemInput.File is not null
+                && await _coverImageMaker.MakeFromFile(itemType, fileSystemItemInput.File) is FileUpload madeCoverImage)
+            {
+                await SaveCoverImage(item, madeCoverImage, savedFilePaths);
             }
         }
 

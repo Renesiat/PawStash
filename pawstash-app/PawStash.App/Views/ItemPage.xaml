@@ -9,17 +9,18 @@
     <ScrollView>
         <VerticalStackLayout Padding="16" Spacing="8">
             <VerticalStackLayout IsVisible="{Binding IsReady}" Spacing="8">
-                <VerticalStackLayout IsVisible="{Binding IsLink}" Spacing="4">
+                <VerticalStackLayout IsVisible="{Binding ShowLinkContent}" Spacing="4">
                     <Label Text="Адреса" />
                     <Entry Text="{Binding LinkUrl}" Placeholder="https://" Keyboard="Url" IsSpellCheckEnabled="False" />
+                    <Label Text="{Binding LinkPageStatus}" IsVisible="{Binding HasLinkPageStatus}" TextColor="#8E8E93" />
                 </VerticalStackLayout>
 
-                <VerticalStackLayout IsVisible="{Binding IsNote}" Spacing="4">
+                <VerticalStackLayout IsVisible="{Binding ShowNoteContent}" Spacing="4">
                     <Label Text="Текст" />
                     <Editor Text="{Binding NoteText}" AutoSize="TextChanges" MinimumHeightRequest="120" />
                 </VerticalStackLayout>
 
-                <VerticalStackLayout IsVisible="{Binding IsUploadedFile}" Spacing="4">
+                <VerticalStackLayout IsVisible="{Binding ShowFileContent}" Spacing="4">
                     <Label Text="Файл" />
                     <Label Text="{Binding FileInfo}" TextColor="#8E8E93" />
                     <Button Text="Замінити файл" Command="{Binding PickFileCommand}" HorizontalOptions="Start" />
@@ -40,9 +41,10 @@
                         IsVisible="{Binding HasCoverImage}">
                     <Image Source="{Binding CoverImage}" Aspect="AspectFill" WidthRequest="96" HeightRequest="96" />
                 </Border>
+                <Label Text="{Binding CoverNote}" IsVisible="{Binding HasCoverNote}" TextColor="#8E8E93" />
                 <HorizontalStackLayout Spacing="8">
                     <Button Text="Вибрати з галереї" Command="{Binding PickCoverImageCommand}" />
-                    <Button Text="Прибрати" Command="{Binding RemoveCoverImageCommand}" IsVisible="{Binding HasCoverImage}" />
+                    <Button Text="Прибрати" Command="{Binding RemoveCoverImageCommand}" IsVisible="{Binding CanRemoveCoverImage}" />
                 </HorizontalStackLayout>
             </VerticalStackLayout>
 

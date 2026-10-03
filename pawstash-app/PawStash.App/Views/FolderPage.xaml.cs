@@ -37,6 +37,4 @@ public partial class FolderPage : ContentPage
 
 	async void OnPathSegmentTapped(object? sender, TappedEventArgs e) =>
 		await _viewModel.GoToAsync((FolderPathSegment)((BindableObject)sender!).BindingContext);
-
-	async void OnItemsCreated(object? sender, EventArgs e) => await _viewModel.LoadAsync();
 }

@@ -80,7 +80,8 @@ namespace PawStash.API.Controllers
                 LinkUrl = fileSystemItemPostForm.LinkUrl,
                 NoteText = fileSystemItemPostForm.NoteText,
                 File = ToFileUpload(fileSystemItemPostForm.File),
-                CoverImage = ToFileUpload(fileSystemItemPostForm.CoverImage)
+                CoverImage = ToFileUpload(fileSystemItemPostForm.CoverImage),
+                RemoveCoverImage = fileSystemItemPostForm.RemoveCoverImage
             };
 
             ServiceResult<FileSystemItemDetailsDto> result = await _fileSystemService.CreateItem(fileSystemItemInput);
@@ -103,9 +104,6 @@ namespace PawStash.API.Controllers
             {
                 Name = fileSystemItemPutForm.Name,
                 Description = fileSystemItemPutForm.Description,
-                LinkUrl = fileSystemItemPutForm.LinkUrl,
-                NoteText = fileSystemItemPutForm.NoteText,
-                File = ToFileUpload(fileSystemItemPutForm.File),
                 CoverImage = ToFileUpload(fileSystemItemPutForm.CoverImage),
                 RemoveCoverImage = fileSystemItemPutForm.RemoveCoverImage
             };

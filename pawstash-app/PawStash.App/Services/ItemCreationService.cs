@@ -3,7 +3,7 @@ using PawStash.Common.Rules;
 
 namespace PawStash.Services;
 
-public class ItemCreationService(FileSystemApi api)
+public class ItemCreationService
 {
 	static readonly FilePickerFileType UploadFileTypes = new(new Dictionary<DevicePlatform, IEnumerable<string>>
 	{
@@ -11,63 +11,21 @@ public class ItemCreationService(FileSystemApi api)
 		[DevicePlatform.WinUI] = FileSystemItemRules.UploadFileExtensions
 	});
 
-	public async Task<IReadOnlyList<string>> UploadFilesAsync(Guid? parentFolderId)
+	public async Task<PickedFile?> PickFileAsync()
 	{
-		IEnumerable<FileResult?>? picked = await FilePicker.Default.PickMultipleAsync(new PickOptions
+		FileResult? file = await FilePicker.Default.PickAsync(new PickOptions
 		{
-			PickerTitle = "Виберіть файли",
+			PickerTitle = "Виберіть файл",
 			FileTypes = UploadFileTypes
 		});
 
-		List<string> errors = [];
-
-		foreach (FileResult? file in picked ?? [])
-		{
-			if (file is null)
-			{
-				continue;
-			}
-
-			string? error = await UploadFileAsync(file, parentFolderId);
-
-			if (error is not null)
-			{
-				errors.Add($"{file.FileName}: {error}");
-			}
-		}
-
-		return errors;
+		return file is null ? null : await PickedFile.ReadAsync(file);
 	}
 
-	async Task<string?> UploadFileAsync(FileResult file, Guid? parentFolderId)
+	public static string? Validate(PickedFile file) => FileSystemItemRules.GetUploadedFileType(file.FileName) switch
 	{
-		FileSystemItemType? itemType = FileSystemItemRules.GetUploadedFileType(file.FileName);
-
-		if (itemType is null)
-		{
-			return "цей формат не підтримується.";
-		}
-
-		PickedFile pickedFile = await PickedFile.ReadAsync(file);
-
-		string? error = itemType == FileSystemItemType.Photo
-			? FileSystemItemRules.ValidatePhotoFile(pickedFile.FileName, pickedFile.Content.Length)
-			: FileSystemItemRules.ValidateDocumentFile(pickedFile.FileName, pickedFile.Content.Length);
-
-		if (error is not null)
-		{
-			return error;
-		}
-
-		try
-		{
-			await api.CreateItemAsync(itemType.Value, parentFolderId, new ItemFormData { File = pickedFile });
-
-			return null;
-		}
-		catch (ApiException ex)
-		{
-			return ex.Message;
-		}
-	}
+		FileSystemItemType.Photo => FileSystemItemRules.ValidatePhotoFile(file.FileName, file.Content.Length),
+		FileSystemItemType.Document => FileSystemItemRules.ValidateDocumentFile(file.FileName, file.Content.Length),
+		_ => "Цей формат не підтримується."
+	};
 }

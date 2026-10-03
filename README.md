@@ -60,6 +60,7 @@ allowed email in the `X-User-Email` header: click **Authorize** in Swagger and e
 Plans and design notes live in [`docs/`](docs/):
 
 - [`file-system-integration-plan.md`](docs/file-system-integration-plan.md) — folders, notes, links and photos: schema, layers, API, stages
+- [`auto-fill-plan.md`](docs/auto-fill-plan.md) — names, descriptions and cover images filled from a link's page or a file
 
 ## Build and run
 

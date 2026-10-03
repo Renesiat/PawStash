@@ -23,6 +23,4 @@ public partial class ProfilePage : ContentPage
 		_auth.Logout();
 		await Shell.Current.GoToAsync("//login");
 	}
-
-	async void OnItemsCreated(object? sender, EventArgs e) => await Shell.Current.GoToAsync("//home");
 }

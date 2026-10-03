@@ -23,6 +23,7 @@ namespace PawStash.BLL
             services.AddScoped<CurrentUser>();
             services.AddScoped<ICurrentUser>(provider => provider.GetRequiredService<CurrentUser>());
             services.AddSingleton<IFileStorage>(new LocalFileStorage(filesRootPath));
+            services.AddSingleton<ICoverImageMaker, CoverImageMaker>();
 
             services.AddValidatorsFromAssembly(typeof(ServiceRegistration).Assembly);
 

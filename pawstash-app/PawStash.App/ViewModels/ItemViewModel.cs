@@ -7,13 +7,21 @@ using PawStash.Services;
 
 namespace PawStash.ViewModels;
 
-public partial class ItemViewModel(FileSystemApi api) : ObservableObject, IQueryAttributable
+public partial class ItemViewModel(FileSystemApi api, LinkPageReader linkPageReader) : ObservableObject, IQueryAttributable
 {
+	const string PdfCoverNote = "Якщо в PDF є картинка, вона стане обкладинкою після збереження";
+
+	static readonly TimeSpan LinkPageDelay = TimeSpan.FromSeconds(1);
+
 	Guid? _itemId;
 
 	Guid? _parentFolderId;
 
 	string? _currentName;
+
+	string? _autoName;
+
+	string? _autoDescription;
 
 	PickedFile? _newFile;
 
@@ -21,10 +29,17 @@ public partial class ItemViewModel(FileSystemApi api) : ObservableObject, IQuery
 
 	bool _removeCoverImage;
 
+	bool _isCoverChosen;
+
+	bool _isCoverAutoFilled;
+
 	bool _isLoaded;
 
+	CancellationTokenSource? _linkPageReading;
+
 	[ObservableProperty]
-	[NotifyPropertyChangedFor(nameof(Title), nameof(IsLink), nameof(IsNote), nameof(IsUploadedFile), nameof(NamePlaceholder))]
+	[NotifyPropertyChangedFor(nameof(Title), nameof(IsLink), nameof(IsNote), nameof(NamePlaceholder))]
+	[NotifyPropertyChangedFor(nameof(ShowLinkContent), nameof(ShowNoteContent), nameof(ShowFileContent))]
 	public partial FileSystemItemType ItemType { get; set; }
 
 	[ObservableProperty]
@@ -45,8 +60,16 @@ public partial class ItemViewModel(FileSystemApi api) : ObservableObject, IQuery
 	public partial string? FileInfo { get; set; }
 
 	[ObservableProperty]
-	[NotifyPropertyChangedFor(nameof(HasCoverImage))]
+	[NotifyPropertyChangedFor(nameof(HasLinkPageStatus))]
+	public partial string? LinkPageStatus { get; set; }
+
+	[ObservableProperty]
+	[NotifyPropertyChangedFor(nameof(HasCoverImage), nameof(CanRemoveCoverImage))]
 	public partial ImageSource? CoverImage { get; set; }
+
+	[ObservableProperty]
+	[NotifyPropertyChangedFor(nameof(HasCoverNote), nameof(CanRemoveCoverImage))]
+	public partial string? CoverNote { get; set; }
 
 	[ObservableProperty]
 	[NotifyPropertyChangedFor(nameof(HasError))]
@@ -58,20 +81,34 @@ public partial class ItemViewModel(FileSystemApi api) : ObservableObject, IQuery
 	[ObservableProperty]
 	public partial bool IsReady { get; set; }
 
+	public bool IsEditing => _itemId is not null;
+
 	public bool IsLink => ItemType == FileSystemItemType.Link;
 
 	public bool IsNote => ItemType == FileSystemItemType.Note;
 
-	public bool IsUploadedFile => ItemType is FileSystemItemType.Photo or FileSystemItemType.Document;
+	public bool ShowLinkContent => IsLink && !IsEditing;
+
+	public bool ShowNoteContent => IsNote && !IsEditing;
+
+	public bool ShowFileContent => (ItemType is FileSystemItemType.Photo or FileSystemItemType.Document) && !IsEditing;
+
+	public bool HasLinkPageStatus => LinkPageStatus is not null;
 
 	public bool HasCoverImage => CoverImage is not null;
 
+	public bool HasCoverNote => CoverNote is not null;
+
+	public bool CanRemoveCoverImage => HasCoverImage || HasCoverNote;
+
 	public bool HasError => Error is not null;
 
-	public string Title => _itemId is not null ? "Редагування" : ItemType switch
+	public string Title => IsEditing ? "Редагування" : ItemType switch
 	{
 		FileSystemItemType.Link => "Нове посилання",
 		FileSystemItemType.Note => "Нова нотатка",
+		FileSystemItemType.Photo => "Нове фото",
+		FileSystemItemType.Document => "Новий документ",
 		_ => "Нова папка"
 	};
 
@@ -102,6 +139,11 @@ public partial class ItemViewModel(FileSystemApi api) : ObservableObject, IQuery
 			_parentFolderId = folderId;
 		}
 
+		if (query.TryGetValue("file", out object? file) && file is PickedFile pickedFile)
+		{
+			UseNewFile(pickedFile);
+		}
+
 		IsReady = true;
 	}
 
@@ -125,7 +167,6 @@ public partial class ItemViewModel(FileSystemApi api) : ObservableObject, IQuery
 			LinkUrl = item.LinkUrl;
 			NoteText = item.NoteText;
 			_currentName = item.Name;
-			FileInfo = item.FileSizeBytes is long sizeBytes ? $"Поточний файл: {FolderItemViewModel.FormatSize(sizeBytes)}" : null;
 
 			if (item.HasCoverImage)
 			{
@@ -142,6 +183,54 @@ public partial class ItemViewModel(FileSystemApi api) : ObservableObject, IQuery
 		finally
 		{
 			IsBusy = false;
+		}
+	}
+
+	partial void OnLinkUrlChanged(string? value)
+	{
+		if (IsReady && ShowLinkContent)
+		{
+			_ = ReadLinkPageAsync(value);
+		}
+	}
+
+	async Task ReadLinkPageAsync(string? url)
+	{
+		_linkPageReading?.Cancel();
+		LinkPageStatus = null;
+
+		if (FileSystemItemRules.ValidateLinkUrl(url) is not null)
+		{
+			return;
+		}
+
+		CancellationTokenSource reading = new();
+		_linkPageReading = reading;
+
+		try
+		{
+			await Task.Delay(LinkPageDelay, reading.Token);
+			LinkPageStatus = "Отримую дані зі сторінки…";
+
+			LinkPagePreview? preview = await linkPageReader.ReadAsync(url!.Trim(), reading.Token);
+
+			if (preview is null)
+			{
+				LinkPageStatus = "Не вдалося отримати дані зі сторінки";
+				return;
+			}
+
+			AutoFillName(preview.Title);
+			AutoFillDescription(preview.Description);
+			AutoFillCoverImage(preview.Picture);
+			LinkPageStatus = null;
+		}
+		catch (OperationCanceledException) when (reading.IsCancellationRequested)
+		{
+		}
+		catch (Exception)
+		{
+			LinkPageStatus = "Не вдалося отримати дані зі сторінки";
 		}
 	}
 
@@ -174,9 +263,7 @@ public partial class ItemViewModel(FileSystemApi api) : ObservableObject, IQuery
 			return;
 		}
 
-		_newFile = pickedFile;
-		FileInfo = $"Новий файл: {pickedFile.FileName}";
-		OnPropertyChanged(nameof(NamePlaceholder));
+		UseNewFile(pickedFile);
 	}
 
 	[RelayCommand]
@@ -201,20 +288,28 @@ public partial class ItemViewModel(FileSystemApi api) : ObservableObject, IQuery
 
 		_newCoverImage = pickedFile;
 		_removeCoverImage = false;
-		CoverImage = ImageSource.FromStream(() => new MemoryStream(pickedFile.Content));
+		_isCoverChosen = true;
+		_isCoverAutoFilled = false;
+		CoverImage = ToImageSource(pickedFile);
+		CoverNote = null;
 	}
 
 	[RelayCommand]
 	void RemoveCoverImage()
 	{
 		_newCoverImage = null;
-		_removeCoverImage = _itemId is not null;
+		_removeCoverImage = true;
+		_isCoverChosen = true;
+		_isCoverAutoFilled = false;
 		CoverImage = null;
+		CoverNote = null;
 	}
 
 	[RelayCommand]
 	async Task SaveAsync()
 	{
+		_linkPageReading?.Cancel();
+		LinkPageStatus = null;
 		Error = Validate();
 
 		if (Error is not null)
@@ -226,9 +321,9 @@ public partial class ItemViewModel(FileSystemApi api) : ObservableObject, IQuery
 		{
 			Name = Name,
 			Description = Description,
-			LinkUrl = IsLink ? LinkUrl : null,
-			NoteText = IsNote ? NoteText : null,
-			File = _newFile,
+			LinkUrl = ShowLinkContent ? LinkUrl : null,
+			NoteText = ShowNoteContent ? NoteText : null,
+			File = ShowFileContent ? _newFile : null,
 			CoverImage = _newCoverImage,
 			RemoveCoverImage = _removeCoverImage
 		};
@@ -262,8 +357,8 @@ public partial class ItemViewModel(FileSystemApi api) : ObservableObject, IQuery
 	{
 		string?[] errors =
 		[
-			IsLink ? FileSystemItemRules.ValidateLinkUrl(LinkUrl) : null,
-			IsNote ? FileSystemItemRules.ValidateNoteText(NoteText) : null,
+			ShowLinkContent ? FileSystemItemRules.ValidateLinkUrl(LinkUrl) : null,
+			ShowNoteContent ? FileSystemItemRules.ValidateNoteText(NoteText) : null,
 			FileSystemItemRules.ValidateName(Name),
 			FileSystemItemRules.ValidateDescription(Description)
 		];
@@ -272,4 +367,63 @@ public partial class ItemViewModel(FileSystemApi api) : ObservableObject, IQuery
 
 		return message.Length > 0 ? message : null;
 	}
+
+	void UseNewFile(PickedFile file)
+	{
+		_newFile = file;
+		FileInfo = $"Новий файл: {file.FileName}";
+		AutoFillName(FileSystemItemRules.GetFileDefaultName(file.FileName));
+		OnPropertyChanged(nameof(NamePlaceholder));
+
+		if (_isCoverChosen)
+		{
+			return;
+		}
+
+		if (ItemType == FileSystemItemType.Photo)
+		{
+			CoverImage = ToImageSource(file);
+			CoverNote = null;
+		}
+		else
+		{
+			CoverNote = FileSystemItemRules.GetMimeType(file.FileName) == FileOpener.PdfMimeType ? PdfCoverNote : null;
+		}
+	}
+
+	void AutoFillName(string? value)
+	{
+		if (!string.IsNullOrWhiteSpace(Name) && Name != _autoName)
+		{
+			return;
+		}
+
+		Name = value;
+		_autoName = value;
+	}
+
+	void AutoFillDescription(string? value)
+	{
+		if (!string.IsNullOrWhiteSpace(Description) && Description != _autoDescription)
+		{
+			return;
+		}
+
+		Description = value;
+		_autoDescription = value;
+	}
+
+	void AutoFillCoverImage(PickedFile? picture)
+	{
+		if (_isCoverChosen || (CoverImage is not null && !_isCoverAutoFilled))
+		{
+			return;
+		}
+
+		_newCoverImage = picture;
+		_isCoverAutoFilled = picture is not null;
+		CoverImage = picture is null ? null : ToImageSource(picture);
+	}
+
+	static ImageSource ToImageSource(PickedFile file) => ImageSource.FromStream(() => new MemoryStream(file.Content));
 }

@@ -12,6 +12,6 @@
             <Button Text="Вийти" Clicked="OnLogoutClicked" HorizontalOptions="Start" />
         </VerticalStackLayout>
 
-        <controls:BottomBar ActiveTab="Profile" ItemsCreated="OnItemsCreated" />
+        <controls:BottomBar ActiveTab="Profile" />
     </Grid>
 </ContentPage>

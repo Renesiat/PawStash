@@ -30,6 +30,7 @@ public static class MauiProgram
 		builder.Services.AddSingleton<AuthService>();
 		builder.Services.AddSingleton<FileSystemApi>();
 		builder.Services.AddSingleton<ItemCreationService>();
+		builder.Services.AddSingleton(new LinkPageReader(CreateLinkPageClient()));
 
 		builder.Services.AddTransient<LoginViewModel>();
 		builder.Services.AddTransient<LoginPage>();
@@ -46,5 +47,15 @@ public static class MauiProgram
 #endif
 
 		return builder.Build();
+	}
+
+	static HttpClient CreateLinkPageClient()
+	{
+		HttpClient http = new() { Timeout = TimeSpan.FromSeconds(10) };
+
+		http.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "Mozilla/5.0 (compatible; PawStash/1.0)");
+		http.DefaultRequestHeaders.TryAddWithoutValidation("Accept-Language", "uk,en;q=0.8");
+
+		return http;
 	}
 }
