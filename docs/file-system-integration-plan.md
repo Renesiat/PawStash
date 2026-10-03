@@ -388,6 +388,24 @@ Stage 4 is next.
 5. **Manual testing** by Alina.
 6. **Automated tests** for this functionality: a `PawStash.Tests` project (xUnit) covering
    `FileSystemService`, run against a throwaway PostgreSQL in Docker.
+   - **Where:** `pawstash-api/PawStash.Tests`, xUnit 2 as in SalvageWorks; no mocking library.
+   - **Database (decision 47):** each run creates its own database `pawstash_tests_{random}` in the running
+     `pawstash-db` container, applies the migrations and drops it at the end. Alina's data isn't touched.
+   - **Isolation:** each test signs in as its own new email and stores files in its own temporary folder.
+   - **What is real:** the service, the validator, `CoverImageMaker` and `LocalFileStorage`, so the unique name
+     index, the `CHECK` constraints, cascade delete and files on disk are tested for real.
+   - **Covered:**
+     - create and its rules, including default names;
+     - edit limited by decision 46;
+     - move;
+     - delete;
+     - folder contents, path and item details;
+     - isolation between emails;
+     - cover images from [`auto-fill-plan.md`](auto-fill-plan.md);
+     - `LinkPageParser`.
+   - **Run:** `.\run-tests.cmd`. It starts the database container like `run-api.cmd`, then runs the tests.
+   - **Status (2026-10-03):** 100 tests, all passing. Breaking two rules on purpose (EXIF turn, content
+     on edit) made exactly their tests fail.
 
 ## 11. Decisions
 
@@ -446,6 +464,7 @@ Stage 4 is next.
 | # | Question | Decision |
 |---|---|---|
 | 46 | What editing can change | Only the name, description and cover image, for every type. The content (a photo's or document's file, a link's address, a note's text) is set on create and can't change. The edit form has no content field, and the edit request has no content fields |
+| 47 | Database for automated tests | A throwaway database in the running `pawstash-db` container, created and dropped by each run. No Testcontainers library |
 
 ## 12. Open questions
 

@@ -36,6 +36,7 @@ Layered like SalvageWorks' `sw-api`, deliberately smaller: four server projects,
 | `pawstash-api/PawStash.BLL` | `Interfaces/` + `Implementations/` (services), `Validators/` (FluentValidation), `Results/ServiceResult`, `ServiceRegistration.cs` |
 | `pawstash-api/PawStash.DAL` | `Context/` (`PawStashContext` + `IPawStashContext`), `Entities/`, `EntityTypeConfigurations/`, `Migrations/` |
 | `pawstash-api/PawStash.Common` | `Models/DTO/<Feature>/`, `Rules/` (validation shared with the app). No server libraries: the app references it |
+| `pawstash-api/PawStash.Tests` | xUnit tests: `FileSystemService` against a throwaway PostgreSQL database, and `LinkPageParser` |
 | `pawstash-app/PawStash.App` | .NET MAUI client: Android (main target); the Windows build is kept as a developer check |
 | `docker-compose.yml` | PostgreSQL for local development |
 
@@ -72,6 +73,7 @@ run-api.cmd        :: starts PostgreSQL + API on http://localhost:5094 (applies 
 run-android.cmd    :: in a second terminal: starts the emulator if needed and runs the app on it
 run.cmd            :: alternative quick check: the Windows build of the app
 build.cmd          :: compile the API and both app targets without running
+run-tests.cmd      :: automated tests (pawstash-api/PawStash.Tests) against a throwaway database in pawstash-db
 ```
 
 ## Sign-in

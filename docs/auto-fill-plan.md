@@ -188,6 +188,9 @@ Each stage ends with a working version, checked through Swagger and by clicking 
 As in the file-system plan, section 10: plan → this document → integration → fixes → Alina's manual tests →
 automated tests. The automated tests cover cover-making in `FileSystemService` and `LinkPageParser`.
 
+Written on 2026-10-03 in `pawstash-api/PawStash.Tests` (file-system plan, section 10, step 6):
+`FileSystem/CoverImageTests.cs` and `Parsers/LinkPageParserTests.cs`, all passing.
+
 ## 9. Open questions
 
 None. The PDF question is answered as decision 14 (option A).
